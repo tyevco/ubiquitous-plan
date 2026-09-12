@@ -214,15 +214,17 @@ const second: Floor = {
         { x: 196, y: 222 },
       ],
     },
-    // The whole kitchen run is on the south wall (tour): pantry at the west
-    // end, then counter, range, counter, fridge, with the hall opening beside
-    // the fridge. The island sits parallel to it.
-    { id: "pantry", name: "Pantry", polygon: rect(6, 247, 24, 24) },
-    { id: "counter-a", name: "Counter", polygon: rect(30, 247, 12, 24) },
-    { id: "range", name: "Range", polygon: rect(42, 247, 30, 24) },
-    { id: "counter-b", name: "Counter", polygon: rect(72, 247, 6, 24) },
-    { id: "fridge", name: "Fridge", polygon: rect(78, 241, 26, 30) },
-    { id: "island", name: "Island", polygon: rect(24, 158, 72, 40) },
+    // Counters wrap the south-west corner: pantry at the north end of the west
+    // wall, then counter, range, counter down to the corner, then counter and
+    // the fridge along the south wall up to the hall opening. The island runs
+    // north-south beside the west run, with the sink and dishwasher in it.
+    { id: "pantry", name: "Pantry", polygon: rect(6, 141, 24, 30) },
+    { id: "counter-w1", name: "Counter", polygon: rect(6, 171, 24, 22) },
+    { id: "range", name: "Range", polygon: rect(6, 193, 24, 30) },
+    { id: "counter-w2", name: "Counter", polygon: rect(6, 223, 24, 24) },
+    { id: "counter-s", name: "Counter", polygon: rect(6, 247, 62, 24) },
+    { id: "fridge", name: "Fridge", polygon: rect(68, 241, 30, 30) },
+    { id: "island", name: "Island", polygon: rect(66, 148, 38, 62) },
     { id: "vanity2", name: "Vanity", polygon: rect(6, 300, 24, 30) },
     { id: "toilet2", name: "Toilet", polygon: rect(8, 349, 18, 26) },
     { id: "tub2", name: "Tub", polygon: rect(66, 330, 30, 60) },
