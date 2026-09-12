@@ -298,3 +298,55 @@ export function edgeLabel(poly: Polygon, i: number): string {
   if (a.y === b.y) return b.x > a.x ? "top (left→right)" : "bottom (right→left)";
   return b.y > a.y ? "right (top→bottom)" : "left (bottom→top)";
 }
+
+/**
+ * Stretch a floor along one axis at a line: everything beyond `at` moves by
+ * `delta`, so a room whose far wall sits on `at` grows while its neighbours on
+ * the far side slide over intact. Doors and windows move as units (never
+ * widen); open-plan boundaries and polygons that straddle the line stretch.
+ */
+export function stretchFloor(project: import("../types").Project, floorId: string, axis: "x" | "y", at: number, delta: number): void {
+  const floor = project.floors.find((f) => f.id === floorId);
+  if (!floor || !delta) return;
+  const shift = (p: Point): void => {
+    if (p[axis] >= at) p[axis] += delta;
+  };
+  const shiftUnit = (pts: Point[]): void => {
+    if (Math.min(...pts.map((p) => p[axis])) >= at) for (const p of pts) p[axis] += delta;
+  };
+  for (const r of floor.rooms) r.polygon.forEach(shift);
+  for (const f of floor.fixtures) f.polygon.forEach(shift);
+  for (const w of floor.windows ?? []) shiftUnit([w.a, w.b]);
+  const roomIds = new Set(floor.rooms.map((r) => r.id));
+  for (const f of project.floors)
+    for (const p of f.passages) {
+      if (p.kind === "stair" && p.stair) {
+        if (roomIds.has(p.rooms[0])) shift(p.stair.landingA);
+        if (roomIds.has(p.rooms[1])) shift(p.stair.landingB);
+        if (f.id === floorId) shiftUnit([p.a, p.b]);
+        continue;
+      }
+      if (f.id !== floorId) continue;
+      if (p.kind === "opening") {
+        shift(p.a);
+        shift(p.b);
+        p.width = Math.round(Math.hypot(p.b.x - p.a.x, p.b.y - p.a.y) * 4) / 4;
+      } else shiftUnit([p.a, p.b]);
+    }
+  for (const pl of project.placements) if (pl.floorId === floorId && pl[axis] >= at) pl[axis] += delta;
+  if (axis === "x") floor.width += delta;
+  else floor.height += delta;
+}
+
+/** Grow a room to its listed size by stretching the floor at its far walls. Never shrinks. */
+export function fitRoomToListed(project: import("../types").Project, floorId: string, roomId: string): { dw: number; dd: number } {
+  const floor = project.floors.find((f) => f.id === floorId);
+  const room = floor?.rooms.find((r) => r.id === roomId);
+  if (!floor || !room?.listed) return { dw: 0, dd: 0 };
+  const b = bounds(room.polygon);
+  const dw = Math.max(0, room.listed.w - b.w);
+  const dd = Math.max(0, room.listed.d - b.h);
+  if (dw) stretchFloor(project, floorId, "x", b.x + b.w, dw);
+  if (dd) stretchFloor(project, floorId, "y", b.y + b.h, dd);
+  return { dw, dd };
+}

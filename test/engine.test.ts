@@ -4,7 +4,7 @@ import { solveRoom } from "../src/engine/solver";
 import { defaultProject } from "../src/engine/defaults";
 import { analyze, analyzeFloor } from "../src/engine/analysis";
 import { buildGrid, passableMask, flood, nearestPassable } from "../src/engine/grid";
-import { footprint, frontZone, sideZones, doorSwingPolygon, convexPolygonsOverlap, rect, areaSummary, rectsOverlap, parseLength, parseSize, setEdgeLength } from "../src/engine/geometry";
+import { footprint, frontZone, sideZones, doorSwingPolygon, convexPolygonsOverlap, rect, areaSummary, rectsOverlap, parseLength, parseSize, setEdgeLength, bounds, stretchFloor } from "../src/engine/geometry";
 import type { Placement, Project } from "../src/types";
 
 describe("corner formula", () => {
@@ -251,5 +251,32 @@ describe("measuring", () => {
     expect(L[1]).toEqual({ x: 60, y: 0 });
     expect(L[3]).toEqual({ x: 110, y: 20 });
     expect(L[5]).toEqual({ x: 0, y: 80 });
+  });
+});
+
+describe("floor stretch", () => {
+  it("grows a room at its far wall and slides neighbours outward without widening doors", () => {
+    const p = defaultProject();
+    const f = p.floors[0];
+    const bed = f.rooms.find((r) => r.id === "bed1")!;
+    const bath = f.rooms.find((r) => r.id === "bath1")!;
+    const door = f.passages.find((x) => x.id === "bed1-door")!;
+    const b0 = bounds(bed.polygon), h0 = f.height, bathY = bounds(bath.polygon).y, dw = door.width;
+    stretchFloor(p, "first", "y", b0.y + b0.h, 12);
+    expect(bounds(bed.polygon).h).toBe(b0.h + 12);
+    expect(bounds(bath.polygon).y).toBe(bathY + 12);
+    expect(bounds(bath.polygon).h).toBe(65);
+    expect(f.height).toBe(h0 + 12);
+    expect(door.width).toBe(dw);
+  });
+  it("default trace honours the printed room sizes", () => {
+    const p = defaultProject();
+    for (const f of p.floors) for (const r of f.rooms) if (r.listed) {
+      const b = bounds(r.polygon);
+      expect(b.w).toBeGreaterThanOrEqual(r.listed.w);
+      expect(b.h).toBeGreaterThanOrEqual(r.listed.d);
+    }
+    expect(p.floors[0].width).toBe(p.floors[1].width);
+    expect(p.floors[0].height).toBe(p.floors[1].height);
   });
 });

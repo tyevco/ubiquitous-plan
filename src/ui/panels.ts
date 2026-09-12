@@ -3,7 +3,7 @@ import type { SolveRequest, SolveResult } from "../engine/solver";
 import { Store, uid, normalize } from "../state";
 import type { PlanCanvas } from "../render/canvas";
 import { OUTSIDE, defaultProject } from "../engine/defaults";
-import { areaSummary, bounds, edgeLabel, footprint, fmtFtIn, isOrthogonal, parseLength, parseSize, rect, resizeToBounds, setEdgeLength } from "../engine/geometry";
+import { areaSummary, bounds, edgeLabel, fitRoomToListed, footprint, fmtFtIn, isOrthogonal, parseLength, parseSize, rect, resizeToBounds, setEdgeLength } from "../engine/geometry";
 import { itemFrontClearance } from "../engine/analysis";
 import { roomOfPoint } from "../engine/transport";
 
@@ -501,7 +501,9 @@ export class Panels {
           <td>${fmtFtIn(b.w)} × ${fmtFtIn(b.h)}<div class="hint">${Math.round(gross)} sq ft</div></td>
           <td><input type="text" class="size" data-size-field="listed" data-floor="${f.id}" data-id="${r.id}" value="${fmt(r.listed)}" placeholder="12' × 11'"></td>
           <td><input type="text" class="size" data-size-field="measured" data-floor="${f.id}" data-id="${r.id}" value="${fmt(r.measured)}" placeholder="tape"></td>
-          <td>${delta}${r.measured ? `<button class="tiny" data-action="apply-measured" data-floor="${f.id}" data-id="${r.id}" title="Resize the room to the measured size">apply</button>` : ""}</td>
+          <td>${delta}${r.measured ? `<button class="tiny" data-action="apply-measured" data-floor="${f.id}" data-id="${r.id}" title="Resize the room to the measured size">apply</button>` : ""}${
+            ref && (dw < -0.5 || dd < -0.5) ? `<button class="tiny" data-action="fit-listed" data-floor="${f.id}" data-id="${r.id}" title="Grow the room to this size, sliding everything beyond its far walls outward">grow</button>` : ""
+          }</td>
           <td><input type="checkbox" data-size-field="verified" data-floor="${f.id}" data-id="${r.id}" ${r.verified ? "checked" : ""} title="All walls checked"></td>
         </tr>`);
       }
@@ -512,7 +514,7 @@ export class Panels {
       ? `<p class="recon">Traced ≈<b>${Math.round(traced).toLocaleString()}</b> sq ft with walls vs <b>${target.toLocaleString()}</b> listed (${traced >= target ? "+" : "−"}${Math.abs(Math.round(((traced - target) / target) * 100))}%). Verified rooms: ${Math.round(verifiedGross)} sq ft. The unverified rooms must total <b>${Math.round(need).toLocaleString()}</b> sq ft; they're traced at ${Math.round(unverifiedGross)} (${unverifiedGross ? (need >= unverifiedGross ? "+" : "−") + Math.abs(Math.round(((need - unverifiedGross) / unverifiedGross) * 100)) + "%" : "n/a"}).</p>`
       : "";
     return `<details data-section="measure" ${this.open.measure ? "open" : ""}><summary>Measure check</summary>
-      <p class="hint">Walk each room with a tape. Type the measured size (e.g. <code>12'2" × 10'6"</code>), or better, select the room and type each wall's length below; tick it when every wall matches. Garage and patios don't count.</p>
+      <p class="hint">Walk each room with a tape. Type the measured size (e.g. <code>12'2" × 10'6"</code>), or better, select the room and type each wall's length below; tick it when every wall matches. <b>grow</b> enlarges a room to its listed or measured size and slides everything beyond its far walls outward, so neighbours keep their shape. Garage and patios don't count.</p>
       <div class="table-wrap"><table class="measure">
         <thead><tr><th>Room</th><th>Traced</th><th>Listed</th><th>Measured</th><th>Δ traced</th><th>✓</th></tr></thead>
         <tbody>${rows.join("")}</tbody>
@@ -836,6 +838,21 @@ export class Panels {
         if (floorId !== s.project.activeFloorId) s.update((p) => (p.activeFloorId = floorId));
         s.selection = { type: "room", id };
         s.touch();
+        break;
+      }
+      case "fit-listed": {
+        const floorId = el.dataset.floor!;
+        s.update((p) => {
+          const room = p.floors.find((x) => x.id === floorId)?.rooms.find((r) => r.id === id);
+          if (!room) return;
+          // Grow toward whichever reference is filled in, preferring the tape.
+          const ref = room.measured ?? room.listed;
+          if (!ref) return;
+          const saved = room.listed;
+          room.listed = ref;
+          fitRoomToListed(p, floorId, id);
+          room.listed = saved;
+        });
         break;
       }
       case "apply-measured": {
