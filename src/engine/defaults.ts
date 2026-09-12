@@ -1,5 +1,5 @@
 import type { Floor, FurnitureItem, Project, Settings } from "../types";
-import { rect } from "./geometry";
+import { fitRoomToListed, rect, stretchFloor } from "./geometry";
 
 /*
  * The apartment as traced from the builder's marketing floorplan. The only
@@ -157,18 +157,20 @@ const second: Floor = {
   width: 258,
   height: 480,
   rooms: [
+    // The sitting area only; the strip beside the stairs under the patio notch
+    // is its own open room so the printed 13' x 12' can be checked against it.
+    { id: "living", name: "Living", polygon: rect(6, 6, 146, 132), listed: { w: 156, d: 144 } },
     {
-      id: "living",
-      name: "Living",
+      id: "hall-n",
+      name: "Stair side",
       polygon: [
-        { x: 6, y: 6 },
-        { x: 152, y: 6 },
         { x: 152, y: 42 },
         { x: 252, y: 42 },
-        { x: 252, y: 138 },
-        { x: 6, y: 138 },
+        { x: 252, y: 85 },
+        { x: 201, y: 85 },
+        { x: 201, y: 138 },
+        { x: 152, y: 138 },
       ],
-      listed: { w: 156, d: 144 },
     },
     { id: "kitchen", name: "Kitchen", polygon: rect(6, 138, 135, 133) },
     { id: "hall", name: "Stair landing", polygon: rect(141, 138, 55, 84) },
@@ -242,7 +244,9 @@ const second: Floor = {
   ],
   passages: [
     { id: "living-kitchen", name: "Living ↔ kitchen", kind: "opening", floorId: "second", a: { x: 6, y: 138 }, b: { x: 141, y: 138 }, width: 135, rooms: ["living", "kitchen"] },
-    { id: "living-hall", name: "Living ↔ stair landing", kind: "opening", floorId: "second", a: { x: 141, y: 138 }, b: { x: 196, y: 138 }, width: 55, rooms: ["living", "hall"] },
+    { id: "living-halln", name: "Living ↔ stair side", kind: "opening", floorId: "second", a: { x: 152, y: 42 }, b: { x: 152, y: 138 }, width: 96, rooms: ["living", "hall-n"] },
+    { id: "living-hall", name: "Living ↔ stair landing", kind: "opening", floorId: "second", a: { x: 141, y: 138 }, b: { x: 152, y: 138 }, width: 11, rooms: ["living", "hall"] },
+    { id: "halln-hall", name: "Stair side ↔ stair landing", kind: "opening", floorId: "second", a: { x: 152, y: 138 }, b: { x: 196, y: 138 }, width: 44, rooms: ["hall-n", "hall"] },
     { id: "kitchen-hall", name: "Kitchen ↔ stair landing", kind: "opening", floorId: "second", a: { x: 141, y: 138 }, b: { x: 141, y: 222 }, width: 84, rooms: ["kitchen", "hall"] },
     { id: "hall-den", name: "Stair landing ↔ den", kind: "opening", floorId: "second", a: { x: 146, y: 225 }, b: { x: 201, y: 225 }, width: 55, rooms: ["hall", "den"] },
     { id: "kitchen-den", name: "Kitchen ↔ den", kind: "opening", floorId: "second", a: { x: 143.5, y: 228 }, b: { x: 143.5, y: 251 }, width: 23, rooms: ["kitchen", "den"] },
@@ -295,8 +299,8 @@ const second: Floor = {
       b: { x: 209, y: 39 },
       width: 36,
       height: 80,
-      rooms: ["living", "patioA"],
-      swingInto: "living",
+      rooms: ["hall-n", "patioA"],
+      swingInto: "hall-n",
       hinge: "a",
     },
   ],
@@ -342,7 +346,7 @@ export const defaultFurniture: FurnitureItem[] = [
 ];
 
 export function defaultProject(): Project {
-  return structuredClone({
+  const p: Project = structuredClone({
     version: 1 as const,
     name: "New apartment",
     floors: [first, second],
@@ -351,4 +355,35 @@ export function defaultProject(): Project {
     settings: defaultSettings,
     activeFloorId: "first",
   });
+  // The drawing traces smaller than the sizes printed on it. Expand the four
+  // labelled rooms to their printed sizes (everything beyond a room's far
+  // wall slides outward), then bring the first floor to the same footprint by
+  // widening the entry beside the stairs and deepening the garage. That lands
+  // the total a little over the listed 1,219 sq ft; the drawing alone lands
+  // under it, so the truth is between and a tape measure decides.
+  fitRoomToListed(p, "second", "living");
+  fitRoomToListed(p, "second", "den");
+  fitRoomToListed(p, "second", "bed2");
+  fitRoomToListed(p, "first", "bed1");
+  const [f1, f2] = p.floors;
+  stretchFloor(p, "first", "x", 199, f2.width - f1.width);
+  stretchFloor(p, "first", "y", f1.height - 6, f2.height - f1.height);
+  // The stretch widened the stair runs with the building; keep them 53" wide
+  // with a 5" rail beside them.
+  const east1 = f1.width - 6;
+  f1.fixtures.find((f) => f.id === "stairs1")!.polygon = rect(east1 - 53, 76, 53, 80);
+  f1.fixtures.find((f) => f.id === "stair-rail1")!.polygon = rect(east1 - 58, 76, 5, 80);
+  const stairs2 = f2.fixtures.find((f) => f.id === "stairs2")!;
+  const rail2 = f2.fixtures.find((f) => f.id === "stair-wall")!;
+  const east = f2.width - 6;
+  stairs2.polygon = rect(east - 53, 85, 53, stairs2.polygon[2].y - 85);
+  rail2.polygon = [
+    { x: east - 58, y: 80 },
+    { x: east, y: 80 },
+    { x: east, y: 85 },
+    { x: east - 53, y: 85 },
+    { x: east - 53, y: stairs2.polygon[2].y },
+    { x: east - 58, y: stairs2.polygon[2].y },
+  ];
+  return p;
 }
