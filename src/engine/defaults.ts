@@ -30,7 +30,7 @@ const first: Floor = {
     { id: "porch", name: "Porch", polygon: rect(158, 3, 94, 26), excludeFromArea: true, outdoor: true },
   ],
   fixtures: [
-    { id: "stairs1", name: "Stairs up", polygon: rect(199, 76, 53, 80) },
+    { id: "stairs1", name: "Stairs up", polygon: rect(199, 76, 53, 80), style: "stairs" },
     { id: "storage1", name: "Storage", polygon: rect(196, 156, 56, 43) },
     { id: "wh", name: "Water heater", polygon: rect(6, 206, 22, 22) },
     { id: "wd", name: "W/D", polygon: rect(33, 206, 35, 35) },
@@ -142,7 +142,7 @@ const first: Floor = {
       // A straight run: you step on at the north end downstairs and off at the
       // south end upstairs. No landing turn, so only width and headroom limit
       // what can be carried up.
-      stair: { width: 42, headroom: 80, landingA: { x: 178, y: 80 }, landingB: { x: 186, y: 205 } },
+      stair: { width: 42, headroom: 80, landingA: { x: 178, y: 80 }, landingB: { x: 226, y: 236 } },
     },
   ],
 };
@@ -167,49 +167,48 @@ const second: Floor = {
       listed: { w: 156, d: 144 },
     },
     { id: "kitchen", name: "Kitchen", polygon: rect(6, 138, 135, 133) },
+    { id: "hall", name: "Stair landing", polygon: rect(141, 138, 55, 84) },
     {
-      id: "hall",
-      name: "Stair landing",
+      id: "den",
+      name: "Den / dining",
+      // The top of the stairs opens straight into the den's north-east corner.
       polygon: [
-        { x: 141, y: 138 },
-        { x: 172, y: 138 },
-        { x: 172, y: 170 },
-        { x: 201, y: 170 },
+        { x: 146, y: 228 },
+        { x: 201, y: 228 },
         { x: 201, y: 222 },
-        { x: 141, y: 222 },
+        { x: 252, y: 222 },
+        { x: 252, y: 326 },
+        { x: 146, y: 326 },
       ],
+      listed: { w: 108, d: 108 },
     },
-    { id: "den", name: "Den / dining", polygon: rect(146, 228, 106, 98), listed: { w: 108, d: 108 } },
-    { id: "hall2", name: "Bedroom hall", polygon: rect(65, 271, 76, 53) },
-    {
-      id: "bath2",
-      name: "Bath 2",
-      polygon: [
-        { x: 6, y: 277 },
-        { x: 59, y: 277 },
-        { x: 59, y: 330 },
-        { x: 97, y: 330 },
-        { x: 97, y: 390 },
-        { x: 6, y: 390 },
-      ],
-    },
-    { id: "closet2", name: "Walk-in closet", polygon: rect(6, 396, 91, 78) },
+    // A 38" corridor off the kitchen's south-east corner, entered through a
+    // cased opening beside the fridge; the bath door is on its west side and
+    // the bedroom door at its south end.
+    { id: "hall2", name: "Bedroom hall", polygon: rect(103, 277, 38, 47) },
+    { id: "bath2", name: "Bath 2", polygon: rect(6, 277, 91, 107) },
+    { id: "closet2", name: "Walk-in closet", polygon: rect(6, 390, 91, 84) },
     { id: "bed2", name: "Bedroom 2", polygon: rect(103, 330, 149, 144), listed: { w: 168, d: 156 } },
     { id: "patioA", name: "Patio", polygon: rect(158, 6, 68, 30), excludeFromArea: true, outdoor: true },
     { id: "patioB", name: "Patio", polygon: rect(258, 236, 34, 81), excludeFromArea: true, outdoor: true },
   ],
   fixtures: [
+    // The stairwell: treads along the east wall, a half-height pony wall along
+    // their inner side that returns to the wall at the far (north) end, and
+    // the top of the stairs open at the south end by the newel post.
+    { id: "stairs2", name: "Stairs down", polygon: rect(201, 85, 51, 137), style: "stairs" },
     {
-      id: "stairs2",
-      name: "Stairs down",
-      // Treads on the right, open stairwell with a rail on the left.
+      id: "stair-wall",
+      name: "Stair half wall",
+      style: "halfwall",
+      height: 42,
       polygon: [
-        { x: 172, y: 85 },
+        { x: 196, y: 80 },
+        { x: 252, y: 80 },
         { x: 252, y: 85 },
-        { x: 252, y: 222 },
+        { x: 201, y: 85 },
         { x: 201, y: 222 },
-        { x: 201, y: 170 },
-        { x: 172, y: 170 },
+        { x: 196, y: 222 },
       ],
     },
     { id: "pantry", name: "Pantry", polygon: rect(6, 141, 22, 35) },
@@ -232,18 +231,18 @@ const second: Floor = {
   ],
   passages: [
     { id: "living-kitchen", name: "Living ↔ kitchen", kind: "opening", floorId: "second", a: { x: 6, y: 138 }, b: { x: 141, y: 138 }, width: 135, rooms: ["living", "kitchen"] },
-    { id: "living-hall", name: "Living ↔ stair landing", kind: "opening", floorId: "second", a: { x: 141, y: 138 }, b: { x: 172, y: 138 }, width: 31, rooms: ["living", "hall"] },
+    { id: "living-hall", name: "Living ↔ stair landing", kind: "opening", floorId: "second", a: { x: 141, y: 138 }, b: { x: 196, y: 138 }, width: 55, rooms: ["living", "hall"] },
     { id: "kitchen-hall", name: "Kitchen ↔ stair landing", kind: "opening", floorId: "second", a: { x: 141, y: 138 }, b: { x: 141, y: 222 }, width: 84, rooms: ["kitchen", "hall"] },
     { id: "hall-den", name: "Stair landing ↔ den", kind: "opening", floorId: "second", a: { x: 146, y: 225 }, b: { x: 201, y: 225 }, width: 55, rooms: ["hall", "den"] },
     { id: "kitchen-den", name: "Kitchen ↔ den", kind: "opening", floorId: "second", a: { x: 143.5, y: 228 }, b: { x: 143.5, y: 251 }, width: 23, rooms: ["kitchen", "den"] },
-    { id: "kitchen-hall2", name: "Kitchen ↔ bedroom hall", kind: "opening", floorId: "second", a: { x: 96, y: 271 }, b: { x: 141, y: 271 }, width: 45, rooms: ["kitchen", "hall2"] },
+    { id: "kitchen-hall2", name: "Bedroom hall opening", kind: "opening", floorId: "second", a: { x: 104, y: 274 }, b: { x: 140, y: 274 }, width: 36, height: 82, rooms: ["kitchen", "hall2"] },
     {
       id: "bath2-door",
       name: "Bath 2 door",
       kind: "door",
       floorId: "second",
-      a: { x: 62, y: 283 },
-      b: { x: 62, y: 313 },
+      a: { x: 100, y: 285 },
+      b: { x: 100, y: 315 },
       width: 30,
       height: 80,
       rooms: ["hall2", "bath2"],

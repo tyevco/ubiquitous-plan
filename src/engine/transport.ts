@@ -81,9 +81,8 @@ function checkPassage(p: Passage, item: FurnitureItem, s: Settings): PassageChec
       if (st.turn) m3 = maxLengthAroundCorner(st.turn.a, st.turn.b, o.w) - o.l;
       margin = Math.min(m1, m2, m3);
     } else {
-      const height = p.height ?? s.defaultDoorHeight;
-      // An open-plan boundary imposes no height limit.
-      const hLimit = p.kind === "opening" ? Infinity : height;
+      // An open-plan boundary imposes no height limit unless one is given (a cased opening with a header).
+      const hLimit = p.height ?? (p.kind === "opening" ? Infinity : s.defaultDoorHeight);
       margin = Math.min(p.width - o.w, hLimit - o.h);
     }
     const check: PassageCheck = {

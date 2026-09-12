@@ -431,9 +431,11 @@ export class PlanCanvas {
     for (const x of f.fixtures) {
       const editable = s.mode === "edit";
       const b = bounds(x.polygon);
-      const cls = `fixture${sel?.type === "fixture" && sel.id === x.id ? " selected" : ""}`;
+      const cls = `fixture ${x.style ?? ""}${sel?.type === "fixture" && sel.id === x.id ? " selected" : ""}`;
       parts.push(`<polygon class="${cls}" points="${pts(x.polygon)}" ${editable ? `data-kind="fixture" data-id="${x.id}"` : ""} ${hairline}/>`);
-      if (b.w > 14 && b.h > 10)
+      if (x.style === "stairs") parts.push(this.treads(b, hairline));
+      const isWall = x.style === "halfwall" || x.style === "wall";
+      if (!isWall && b.w > 14 && b.h > 10)
         parts.push(`<text class="label fixture-label" x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${fs(10)}">${esc(x.name)}</text>`);
     }
 
@@ -589,6 +591,14 @@ export class PlanCanvas {
     this.svg.innerHTML = `<g transform="translate(${v.tx} ${v.ty}) scale(${v.scale})">${parts.join("")}</g>`;
     this.svg.classList.toggle("placing", !!s.placing);
     this.svg.classList.toggle("edit", s.mode === "edit");
+  }
+
+  /** Tread lines across the short axis of a stair run, every 10". */
+  private treads(b: Rect, hairline: string): string {
+    const out: string[] = [];
+    if (b.w >= b.h) for (let x = b.x + 10; x < b.x + b.w; x += 10) out.push(`<line class="tread" x1="${x}" y1="${b.y}" x2="${x}" y2="${b.y + b.h}" ${hairline}/>`);
+    else for (let y = b.y + 10; y < b.y + b.h; y += 10) out.push(`<line class="tread" x1="${b.x}" y1="${y}" x2="${b.x + b.w}" y2="${y}" ${hairline}/>`);
+    return out.join("");
   }
 
   /** A length label on each wall of a polygon, just inside the room. */

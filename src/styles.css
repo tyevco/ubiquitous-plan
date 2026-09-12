@@ -124,6 +124,11 @@ svg.edit .room { cursor: move; }
 .fixture { fill: #dedad3; stroke: #a8a29b; stroke-width: 1px; }
 svg.edit .fixture { cursor: move; }
 .fixture.selected { fill: #cdd9f5; }
+.fixture.halfwall { fill: #8f8a83; stroke: #6b6560; }
+.fixture.wall { fill: var(--wall); stroke: var(--wall); }
+.fixture.stairs { fill: #efece6; stroke: #a8a29b; }
+.fixture.halfwall.selected, .fixture.wall.selected, .fixture.stairs.selected { stroke: var(--accent); stroke-width: 2px; }
+.tread { stroke: #b5afa6; stroke-width: 1px; pointer-events: none; }
 .label { text-anchor: middle; dominant-baseline: middle; fill: var(--ink); pointer-events: none; }
 .room-label { font-weight: 600; fill: #857f75; letter-spacing: 0.03em; }
 .room-dim { fill: #a39d93; }
