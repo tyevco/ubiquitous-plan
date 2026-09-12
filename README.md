@@ -17,8 +17,8 @@ npm run build      # static site in dist/
 ```
 
 The workflow in `.github/workflows/deploy.yml` builds and tests on every push
-and publishes `main` to GitHub Pages once Pages is enabled for the repository
-(Settings → Pages → Source: GitHub Actions).
+and publishes the repository's default branch to GitHub Pages at
+https://tyevco.github.io/ubiquitous-plan/ (it enables Pages on first run).
 
 ## What it does
 
