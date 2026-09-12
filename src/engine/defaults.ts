@@ -154,7 +154,7 @@ const first: Floor = {
 const second: Floor = {
   id: "second",
   name: "Second floor",
-  width: 300,
+  width: 258,
   height: 480,
   rooms: [
     {
@@ -194,7 +194,6 @@ const second: Floor = {
     { id: "closet2", name: "Walk-in closet", polygon: rect(6, 390, 91, 84) },
     { id: "bed2", name: "Bedroom 2", polygon: rect(103, 330, 149, 144), listed: { w: 168, d: 156 } },
     { id: "patioA", name: "Patio", polygon: rect(158, 6, 68, 30), excludeFromArea: true, outdoor: true },
-    { id: "patioB", name: "Patio", polygon: rect(258, 236, 34, 81), excludeFromArea: true, outdoor: true },
   ],
   fixtures: [
     // The stairwell: treads along the east wall, a half-height pony wall along
@@ -215,21 +214,27 @@ const second: Floor = {
         { x: 196, y: 222 },
       ],
     },
-    { id: "pantry", name: "Pantry", polygon: rect(6, 141, 22, 35) },
-    { id: "counter-l", name: "Range / counter", polygon: rect(6, 176, 22, 95) },
-    { id: "island", name: "Island", polygon: rect(68, 146, 41, 58) },
-    { id: "counter-b", name: "Counter", polygon: rect(28, 251, 40, 20) },
-    { id: "fridge", name: "Fridge", polygon: rect(68, 251, 28, 20) },
+    // The whole kitchen run is on the south wall (tour): pantry at the west
+    // end, then counter, range, counter, fridge, with the hall opening beside
+    // the fridge. The island sits parallel to it.
+    { id: "pantry", name: "Pantry", polygon: rect(6, 247, 24, 24) },
+    { id: "counter-a", name: "Counter", polygon: rect(30, 247, 12, 24) },
+    { id: "range", name: "Range", polygon: rect(42, 247, 30, 24) },
+    { id: "counter-b", name: "Counter", polygon: rect(72, 247, 6, 24) },
+    { id: "fridge", name: "Fridge", polygon: rect(78, 241, 26, 30) },
+    { id: "island", name: "Island", polygon: rect(24, 158, 72, 40) },
     { id: "vanity2", name: "Vanity", polygon: rect(6, 300, 24, 30) },
     { id: "toilet2", name: "Toilet", polygon: rect(8, 349, 18, 26) },
     { id: "tub2", name: "Tub", polygon: rect(66, 330, 30, 60) },
     { id: "linen2", name: "Linen", polygon: rect(60, 396, 20, 16) },
   ],
   windows: [
-    { id: "w2-living-top", name: "Living window", a: { x: 36, y: 3 }, b: { x: 146, y: 3 } },
+    { id: "w2-living-top-a", name: "Living window", a: { x: 30, y: 3 }, b: { x: 78, y: 3 } },
+    { id: "w2-living-top-b", name: "Living window", a: { x: 98, y: 3 }, b: { x: 146, y: 3 } },
     { id: "w2-living-left", name: "Living side window", a: { x: 3, y: 57 }, b: { x: 3, y: 126 } },
     { id: "w2-stair", name: "Stairwell window", a: { x: 255, y: 97 }, b: { x: 255, y: 117 }, sill: 42 },
-    { id: "w2-bed-right", name: "Bedroom 2 side window", a: { x: 255, y: 338 }, b: { x: 255, y: 362 } },
+    { id: "w2-den", name: "Den window", a: { x: 255, y: 256 }, b: { x: 255, y: 300 } },
+    { id: "w2-bed-right", name: "Bedroom 2 side window", a: { x: 255, y: 426 }, b: { x: 255, y: 456 } },
     { id: "w2-bed-a", name: "Bedroom 2 window", a: { x: 132, y: 477 }, b: { x: 164, y: 477 } },
     { id: "w2-bed-b", name: "Bedroom 2 window", a: { x: 193, y: 477 }, b: { x: 233, y: 477 } },
   ],
@@ -290,19 +295,6 @@ const second: Floor = {
       height: 80,
       rooms: ["living", "patioA"],
       swingInto: "living",
-      hinge: "a",
-    },
-    {
-      id: "patioB-door",
-      name: "Den patio door",
-      kind: "exterior",
-      floorId: "second",
-      a: { x: 255, y: 256 },
-      b: { x: 255, y: 292 },
-      width: 36,
-      height: 80,
-      rooms: ["den", "patioB"],
-      swingInto: "den",
       hinge: "a",
     },
   ],
