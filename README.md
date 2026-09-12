@@ -85,6 +85,12 @@ the badge turns amber.
 
 **Rules & tolerances** are all adjustable in the right-hand panel.
 
+## Checking the trace against the plan
+
+`docs/plan/plan.png` is the builder's plan. `docs/compare/` holds room-by-room
+sheets with the app's trace beside the same window of the plan, and
+`tools/room-compare/` regenerates them (see its README).
+
 ## Layout of the code
 
 - `src/engine/geometry.ts` – rectangles, polygons, footprints, door swings.
