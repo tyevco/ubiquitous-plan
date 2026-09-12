@@ -3,7 +3,8 @@ import { writeFileSync, mkdirSync } from "node:fs";
 mkdirSync("tools/room-compare/out", { recursive: true }); process.chdir("tools/room-compare/out"); mkdirSync("rooms", { recursive: true }); mkdirSync("plan", { recursive: true });
 const PAD = 30; // inches of context
 // Plan image registration: the building outline (inside the thick outer line) per floor, in image pixels.
-const REG = { first: { x0: 10, x1: 442, y0: 8, y1: 805 }, second: { x0: 572, x1: 1002, y0: 8, y1: 805 } };
+// Image pixels of the floor bounding box (0..width, 0..height); derived from the mapper in src/engine/defaults.ts.
+const REG = { first: { x0: 3.5, x1: 440.5, y0: 2.7, y1: 789 }, second: { x0: 565.6, x1: 1001.4, y0: 4.5, y1: 806.4 } };
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 }, deviceScaleFactor: 2 });
 await page.goto(process.env.APP_URL ?? "http://localhost:4173/");
