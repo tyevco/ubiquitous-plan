@@ -14,6 +14,7 @@ const KIND_COLORS: Record<string, string> = {
   cabinet: "#dccbb0",
   sofa: "#d8cfe8",
   desk: "#cfe3e8",
+  piano: "#2f2f2f",
   other: "#e2e2e2",
 };
 
@@ -24,7 +25,9 @@ type DragState =
   | { kind: "body"; owner: "room" | "fixture"; id: string; last: Point }
   | { kind: "passage-end"; id: string; end: "a" | "b" }
   | { kind: "passage"; id: string; last: Point }
-  | { kind: "landing"; id: string; end: "A" | "B" };
+  | { kind: "landing"; id: string; end: "A" | "B" }
+  | { kind: "window-end"; id: string; end: "a" | "b" }
+  | { kind: "window"; id: string; last: Point };
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const pts = (poly: Polygon): string => poly.map((p) => `${p.x},${p.y}`).join(" ");
@@ -147,6 +150,14 @@ export class PlanCanvas {
         s.selection = { type: "passage", id };
         s.beginDrag();
         this.drag = { kind: "landing", id, end: target!.dataset.end as "A" | "B" };
+      } else if (kind === "window-end") {
+        s.selection = { type: "window", id };
+        s.beginDrag();
+        this.drag = { kind: "window-end", id, end: target!.dataset.end as "a" | "b" };
+      } else if (kind === "window") {
+        s.selection = { type: "window", id };
+        s.beginDrag();
+        this.drag = { kind: "window", id, last: p };
       } else {
         this.drag = { kind: "pan", startX: e.clientX, startY: e.clientY, tx: v.tx, ty: v.ty };
         return;
@@ -229,6 +240,29 @@ export class PlanCanvas {
           s.updateTransient(() => {
             pass.a = { x: pass.a.x + dx, y: pass.a.y + dy };
             pass.b = { x: pass.b.x + dx, y: pass.b.y + dy };
+          });
+          break;
+        }
+        case "window-end": {
+          const w = s.floor.windows.find((x) => x.id === d.id);
+          if (!w) return;
+          const nx = snapTo(p.x, snap),
+            ny = snapTo(p.y, snap);
+          s.updateTransient(() => {
+            w[d.end] = { x: nx, y: ny };
+          });
+          break;
+        }
+        case "window": {
+          const w = s.floor.windows.find((x) => x.id === d.id);
+          if (!w) return;
+          const dx = snapTo(p.x - d.last.x, snap),
+            dy = snapTo(p.y - d.last.y, snap);
+          if (!dx && !dy) return;
+          d.last = { x: d.last.x + dx, y: d.last.y + dy };
+          s.updateTransient(() => {
+            w.a = { x: w.a.x + dx, y: w.a.y + dy };
+            w.b = { x: w.b.x + dx, y: w.b.y + dy };
           });
           break;
         }
@@ -364,10 +398,10 @@ export class PlanCanvas {
 
     // Walls: stroke each room polygon 12" wide under the floor fills so the 6" gaps read as walls.
     const drawn = f.rooms.filter((r) => !r.virtual);
-    for (const r of drawn) parts.push(`<polygon class="wall" points="${pts(r.polygon)}" />`);
+    for (const r of drawn) if (!r.outdoor) parts.push(`<polygon class="wall" points="${pts(r.polygon)}" />`);
     for (const r of drawn) {
       const editable = s.mode === "edit";
-      const cls = `room${sel?.type === "room" && sel.id === r.id ? " selected" : ""}`;
+      const cls = `room${r.outdoor ? " outdoor" : ""}${sel?.type === "room" && sel.id === r.id ? " selected" : ""}`;
       parts.push(`<polygon class="${cls}" points="${pts(r.polygon)}" ${editable ? `data-kind="room" data-id="${r.id}"` : ""} ${hairline}/>`);
     }
 
@@ -376,6 +410,15 @@ export class PlanCanvas {
       if (p.kind === "stair") continue;
       const r = passageRect(p, 3.5);
       parts.push(`<rect class="opening" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
+    }
+
+    // Windows: a light bar in the wall.
+    for (const w of f.windows ?? []) {
+      const r = passageRect(w, 3);
+      const selected = sel?.type === "window" && sel.id === w.id;
+      const attrs = s.mode === "edit" ? `data-kind="window" data-id="${w.id}"` : "";
+      parts.push(`<rect class="window${selected ? " selected" : ""}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" ${attrs} ${hairline}/>`);
+      parts.push(`<line class="window-line" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}" ${hairline}/>`);
     }
 
     // Walk overlay as a raster image.
@@ -466,7 +509,7 @@ export class PlanCanvas {
       const selected = sel?.type === "placement" && sel.id === p.id;
       const status = issueByPlacement.get(p.id) ?? "";
       const fill = KIND_COLORS[item.kind] ?? KIND_COLORS.other;
-      parts.push(`<g class="placement ${status}${selected ? " selected" : ""}" data-kind="placement" data-id="${p.id}">`);
+      parts.push(`<g class="placement ${item.kind} ${status}${selected ? " selected" : ""}" data-kind="placement" data-id="${p.id}">`);
       parts.push(`<rect x="${fp.x}" y="${fp.y}" width="${fp.w}" height="${fp.h}" fill="${fill}" ${hairline}/>`);
       parts.push(this.frontMark(p, fp, hairline));
       if (item.kind === "bed") parts.push(this.bedDecor(p, fp, hairline));
@@ -521,6 +564,9 @@ export class PlanCanvas {
         for (const end of ["a", "b"] as const)
           parts.push(`<circle class="vertex passage" data-kind="passage-end" data-id="${p.id}" data-end="${end}" cx="${p[end].x}" cy="${p[end].y}" r="${hr}" ${hairline}/>`);
       }
+      for (const w of f.windows ?? [])
+        for (const end of ["a", "b"] as const)
+          parts.push(`<circle class="vertex window" data-kind="window-end" data-id="${w.id}" data-end="${end}" cx="${w[end].x}" cy="${w[end].y}" r="${hr}" ${hairline}/>`);
     }
 
     // Scale bar.

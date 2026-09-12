@@ -8,6 +8,7 @@ export type Selection =
   | { type: "room"; id: string }
   | { type: "fixture"; id: string }
   | { type: "passage"; id: string }
+  | { type: "window"; id: string }
   | null;
 
 export interface View {
@@ -152,7 +153,9 @@ export class Store {
           ? floor.rooms.some((r) => r.id === s.id)
           : s.type === "fixture"
             ? floor.fixtures.some((r) => r.id === s.id)
-            : floor.passages.some((r) => r.id === s.id);
+            : s.type === "window"
+              ? floor.windows.some((r) => r.id === s.id)
+              : floor.passages.some((r) => r.id === s.id);
     if (!exists) this.selection = null;
   }
 
@@ -198,6 +201,7 @@ export function normalize(p: Project): Project {
     f.rooms ??= [];
     f.fixtures ??= [];
     f.passages ??= [];
+    f.windows ??= [];
   }
   return project;
 }

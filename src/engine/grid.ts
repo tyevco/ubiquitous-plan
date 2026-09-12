@@ -1,4 +1,4 @@
-import type { Floor, Passage } from "../types";
+import type { Floor, Point } from "../types";
 import { bounds, pointInPolygon, type Rect } from "./geometry";
 import type { Polygon } from "../types";
 
@@ -21,7 +21,13 @@ export function cellOf(g: Grid, x: number, y: number): [number, number] {
   return [Math.min(g.cols - 1, Math.max(0, Math.floor(x / g.cell))), Math.min(g.rows - 1, Math.max(0, Math.floor(y / g.cell)))];
 }
 
-function rasterPolygon(g: { cols: number; rows: number; cell: number }, poly: Polygon, fn: (i: number) => void): void {
+/**
+ * Visit the cells whose centre lies in the polygon. With `inclusive`, a cell
+ * whose centre sits exactly on the boundary (a room edge at an odd inch with
+ * 2" cells) also counts, so furniture flush against a wall isn't marked as
+ * overlapping it.
+ */
+function rasterPolygon(g: { cols: number; rows: number; cell: number }, poly: Polygon, fn: (i: number) => void, inclusive = false): void {
   const b = bounds(poly);
   const x0 = Math.max(0, Math.floor(b.x / g.cell));
   const y0 = Math.max(0, Math.floor(b.y / g.cell));
@@ -31,20 +37,28 @@ function rasterPolygon(g: { cols: number; rows: number; cell: number }, poly: Po
     const q = poly[(i + 1) % 4];
     return p.x === q.x || p.y === q.y;
   });
+  const eps = inclusive ? 0.01 : -0.01;
   for (let cy = y0; cy <= y1; cy++) {
     const py = (cy + 0.5) * g.cell;
     for (let cx = x0; cx <= x1; cx++) {
       const px = (cx + 0.5) * g.cell;
-      const inside = isRect
-        ? px > b.x && px < b.x + b.w && py > b.y && py < b.y + b.h
-        : pointInPolygon({ x: px, y: py }, poly);
+      let inside: boolean;
+      if (isRect) inside = px > b.x - eps && px < b.x + b.w + eps && py > b.y - eps && py < b.y + b.h + eps;
+      else if (!inclusive) inside = pointInPolygon({ x: px, y: py }, poly);
+      else
+        inside =
+          pointInPolygon({ x: px, y: py }, poly) ||
+          pointInPolygon({ x: px - eps, y: py }, poly) ||
+          pointInPolygon({ x: px + eps, y: py }, poly) ||
+          pointInPolygon({ x: px, y: py - eps }, poly) ||
+          pointInPolygon({ x: px, y: py + eps }, poly);
       if (inside) fn(cy * g.cols + cx);
     }
   }
 }
 
-/** Rectangle covering a passage's opening across the wall it sits in. */
-export function passageRect(p: Passage, reach = 8): Rect {
+/** Rectangle covering a passage's (or window's) span across the wall it sits in. */
+export function passageRect(p: { a: Point; b: Point }, reach = 8): Rect {
   const horizontal = Math.abs(p.b.x - p.a.x) >= Math.abs(p.b.y - p.a.y);
   const minX = Math.min(p.a.x, p.b.x),
     maxX = Math.max(p.a.x, p.b.x);
@@ -64,7 +78,7 @@ export function buildGrid(floor: Floor, cell: number, extraBlocked: Polygon[]): 
   const rows = Math.ceil(floor.height / cell);
   const g = { cols, rows, cell };
   const blocked = new Uint8Array(cols * rows).fill(1);
-  for (const r of floor.rooms) if (!r.virtual) rasterPolygon(g, r.polygon, (i) => (blocked[i] = 0));
+  for (const r of floor.rooms) if (!r.virtual) rasterPolygon(g, r.polygon, (i) => (blocked[i] = 0), true);
   for (const p of floor.passages) {
     if (p.kind === "stair") continue;
     const r = passageRect(p);

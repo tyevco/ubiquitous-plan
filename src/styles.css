@@ -118,6 +118,8 @@ svg.plan.placing { cursor: crosshair; }
 .room { fill: var(--floor); stroke: none; }
 svg.edit .room { cursor: move; }
 .room.selected { fill: #eef3ff; }
+.room.outdoor { fill: #edf3e6; stroke: #9aae86; stroke-width: 1.5px; stroke-dasharray: 6 3; }
+.room.outdoor.selected { fill: #e3ecf7; stroke: var(--accent); }
 .opening { fill: var(--floor); }
 .fixture { fill: #dedad3; stroke: #a8a29b; stroke-width: 1px; }
 svg.edit .fixture { cursor: move; }
@@ -159,3 +161,23 @@ svg.edit .landing { cursor: move; }
 .vertex.passage { fill: var(--accent); }
 .scalebar line { stroke: #7a746c; stroke-width: 1.5px; }
 .scalebar .label { fill: #7a746c; }
+
+/* Windows */
+.window { fill: #e4f0fb; stroke: #7fa7d1; stroke-width: 1px; }
+svg.edit .window { cursor: move; }
+.window.selected { stroke: var(--accent); stroke-width: 2px; }
+.window-line { stroke: #7fa7d1; stroke-width: 1px; pointer-events: none; }
+.vertex.window { stroke: #7fa7d1; }
+.placement.piano .item-label { fill: #fff; }
+.placement.piano .front { fill: #c9a86a; }
+
+/* Auto-arrange */
+.picks { max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; margin: 6px 0; }
+.pick { display: grid; grid-template-columns: auto 1fr 56px; gap: 6px; align-items: center; color: var(--ink); margin: 3px 0; }
+.pick input[type="checkbox"], .pick input[type="number"] { width: auto; }
+.pick input[type="number"] { width: 56px; padding: 2px 4px; }
+.solver-msg { color: var(--ink); }
+
+.area { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: #eceff3; color: var(--muted); cursor: help; white-space: nowrap; }
+.area.ok { background: #e3f4ea; color: var(--ok); }
+.area.warn { background: #fdf0dc; color: var(--warn); }

@@ -56,6 +56,8 @@ function orientations(item: FurnitureItem): { w: number; h: number; l: number; l
   for (let i = 0; i < 3; i++)
     for (let j = 0; j < 3; j++) {
       if (i === j) continue;
+      // Upright-only pieces keep their height vertical.
+      if (item.keepUpright && j !== 2) continue;
       const k = 3 - i - j;
       const [w] = dims[i],
         [h] = dims[j],

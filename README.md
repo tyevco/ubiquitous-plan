@@ -42,6 +42,21 @@ and publishes `main` to GitHub Pages once Pages is enabled for the repository
 - The **walk** overlay paints where a person of the chosen width can stand
   (green = reachable from a door, orange = wide enough but cut off, red = too
   tight).
+- Windows are drawn in the walls; a piece taller than the sill standing in
+  front of one is flagged.
+
+**Auto-arrange**
+
+Pick a room and tick the pieces that should go in it, and the arranger finds
+spots for them: beds with their head to a wall and both sides free, nightstands
+beside the bed, dressers and shelves backed against real walls, tables central,
+doors, swings, stair landings, and walkways kept clear. It searches candidate
+spots with the same rules the Problems list uses, so a clean result has no
+warnings. Pieces that only fit by breaking a rule are placed last and listed as
+compromises; pieces that can't fit at all (or can't be carried into the room)
+are left out and the reason is given. Other pieces stay where they are and act
+as obstacles, so you can arrange one room at a time or re-run after moving
+something by hand. The search runs in a web worker and takes a second or two.
 
 **Can we bring it?**
 
@@ -50,15 +65,23 @@ garage door, up the stairs (width, headroom, and the landing turn), and through
 each interior door, in every orientation including on its side or end. The
 inventory badge shows whether it fits everywhere, only in some rooms, or
 nowhere, and the panel explains which opening is the bottleneck and by how much.
-Beds are marked as coming apart, which skips the check.
+Beds are marked as coming apart, which skips the check. The piano is marked
+"must be carried upright", so it's only allowed through on its feet or a dolly,
+never tipped on its side.
 
 **Edit plan mode**
 
 The floorplan image only states the room sizes, so wall positions, door widths,
-and the stair geometry are estimates (interior doors 30", entry 36", stairs 36"
-with a 36" × 36" landing turn). Edit mode lets you drag corners, walls, door
+and the stair geometry are estimates (interior doors 30", entry and patio
+doors 36", a straight 42" stair with 80" headroom). Edit mode lets you drag corners, walls, door
 ends, and stair landings, or type exact numbers, once you have measured on site.
 Rooms can be any polygon; fixtures (island, tub, water heater) are obstacles.
+
+The top bar shows the traced square footage next to the listed size (1,219
+sq ft). Walls are counted the way listings do, the garage and patios are left
+out, and any room can be toggled in or out of the total in Edit plan mode. If
+the number drifts more than 5% from the listing after you correct the rooms,
+the badge turns amber.
 
 **Rules & tolerances** are all adjustable in the right-hand panel.
 
@@ -68,6 +91,7 @@ Rooms can be any polygon; fixtures (island, tub, water heater) are obstacles.
 - `src/engine/grid.ts` – rasterises a floor, exact distance transform, flood fill.
 - `src/engine/analysis.ts` – the clearance and walkability rules.
 - `src/engine/transport.ts` – fits-through-doors and around-the-stair-turn check.
+- `src/engine/solver.ts` – the auto-arranger (runs in `solver.worker.ts`).
 - `src/engine/defaults.ts` – the traced apartment and the measured furniture.
 - `src/render/canvas.ts` – SVG drawing and mouse interaction.
 - `src/ui/panels.ts` – inventory, inspector, problems, settings, plan editor.

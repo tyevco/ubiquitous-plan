@@ -195,3 +195,36 @@ export function fmtFtIn(v: number): string {
   if (inch === 0) return `${ft}'`;
   return `${ft}' ${inch}"`;
 }
+
+export function polygonPerimeter(poly: Polygon): number {
+  let p = 0;
+  for (let i = 0; i < poly.length; i++) p += dist(poly[i], poly[(i + 1) % poly.length]);
+  return p;
+}
+
+export interface AreaSummary {
+  /** Net floor area inside the walls, square feet. */
+  net: number;
+  /** Net plus half the surrounding wall (3"), which is roughly how listings measure. */
+  gross: number;
+  floors: { id: string; name: string; net: number; gross: number }[];
+}
+
+/** Square footage of the rooms that count, per floor and in total. */
+export function areaSummary(floors: { id: string; name: string; rooms: { polygon: Polygon; virtual?: boolean; excludeFromArea?: boolean }[] }[]): AreaSummary {
+  const out: AreaSummary = { net: 0, gross: 0, floors: [] };
+  for (const f of floors) {
+    let net = 0,
+      gross = 0;
+    for (const r of f.rooms) {
+      if (r.virtual || r.excludeFromArea) continue;
+      const a = polygonArea(r.polygon);
+      net += a;
+      gross += a + 3 * polygonPerimeter(r.polygon) + 36;
+    }
+    out.floors.push({ id: f.id, name: f.name, net: net / 144, gross: gross / 144 });
+    out.net += net / 144;
+    out.gross += gross / 144;
+  }
+  return out;
+}

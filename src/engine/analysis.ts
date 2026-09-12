@@ -60,6 +60,9 @@ export function itemFrontClearance(item: FurnitureItem, s: Settings): number {
       return s.tableClearance;
     case "table":
       return s.tableClearance;
+    case "piano":
+      // Bench plus the player.
+      return 42;
     case "bed":
       return 0;
     default:
@@ -118,13 +121,13 @@ function fractionStaticBlocked(g: Grid, r: Rect): number {
   return n ? b / n : 1;
 }
 
-export function analyzeFloor(project: Project, floor: Floor): FloorAnalysis {
+export function analyzeFloor(project: Project, floor: Floor, staticGridIn?: Grid): FloorAnalysis {
   const s = project.settings;
   const items = new Map(project.furniture.map((f) => [f.id, f]));
   const placements = project.placements.filter((p) => p.floorId === floor.id && items.has(p.itemId));
   const issues: Issue[] = [];
 
-  const staticGrid = buildGrid(floor, s.cellSize, []);
+  const staticGrid = staticGridIn ?? buildGrid(floor, s.cellSize, []);
   const furnPolys = placements.map((p) => rectToPolygon(footprint(p, items.get(p.itemId)!)));
   const grid = buildGrid(floor, s.cellSize, furnPolys);
 
@@ -205,14 +208,19 @@ export function analyzeFloor(project: Project, floor: Floor): FloorAnalysis {
     const zones = accessZones(p, item, s);
     const isBed = item.kind === "bed";
     let sideFailures = 0;
+    const fp0 = footprint(p, item);
+    const roomId = roomOfPoint(floor, fp0.x + fp0.w / 2, fp0.y + fp0.h / 2);
+    const roomBounds = roomId ? bounds(floor.rooms.find((r) => r.id === roomId)!.polygon) : undefined;
     for (const z of zones) {
       const blockers: string[] = [];
       if (staticBlockedInRect(staticGrid, z.rect, floor)) blockers.push("a wall or fixture");
+      // Furniture only counts if it's in the part of the zone inside this room (not through a wall).
+      const inRoom = roomBounds ? rectIntersection(z.rect, roomBounds) : z.rect;
       for (const q of placements) {
-        if (q === p) continue;
+        if (q === p || !inRoom) continue;
         const qi = items.get(q.itemId)!;
         if (isBed && qi.allowInBedZone) continue;
-        if (rectsOverlap(footprint(q, qi), z.rect)) blockers.push(qi.name);
+        if (rectsOverlap(footprint(q, qi), inRoom)) blockers.push(qi.name);
       }
       if (!blockers.length) continue;
       if (isBed) {
@@ -237,6 +245,25 @@ export function analyzeFloor(project: Project, floor: Floor): FloorAnalysis {
         placementIds: [p.id],
         rect: z.rect,
         message: `${item.name}: ${z.kind === "front" ? `${need}" in front` : `${need}" on the ${z.label}`} is blocked by ${uniq(blockers).join(", ")}.`,
+      });
+    }
+  }
+
+  // 4b. Tall pieces in front of windows.
+  for (const w of floor.windows ?? []) {
+    const wr = passageRect(w, 8);
+    const sill = w.sill ?? s.defaultSillHeight;
+    for (const p of placements) {
+      const item = items.get(p.itemId)!;
+      if (item.h <= sill) continue;
+      if (!rectsOverlap(footprint(p, item), wr)) continue;
+      issues.push({
+        id: `window:${w.id}:${p.id}`,
+        severity: "warning",
+        floorId: floor.id,
+        placementIds: [p.id],
+        rect: wr,
+        message: `${item.name} (${item.h}" tall) blocks the ${w.name ?? "window"} (sill at ${sill}").`,
       });
     }
   }

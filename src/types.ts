@@ -15,6 +15,10 @@ export interface Room {
   polygon: Polygon;
   /** Rooms that exist only to route through (e.g. "outside") are never drawn. */
   virtual?: boolean;
+  /** Leave out of the square-footage total (garage, patios, porch). */
+  excludeFromArea?: boolean;
+  /** Outside space (patio, porch): drawn with a railing edge instead of walls. */
+  outdoor?: boolean;
 }
 
 /** Something built in that furniture can't occupy: an island, a tub, the stairs. */
@@ -66,6 +70,16 @@ export interface Passage {
   };
 }
 
+/** A window in a wall. Furniture taller than the sill in front of it blocks the light. */
+export interface Window {
+  id: string;
+  name?: string;
+  a: Point;
+  b: Point;
+  /** Height of the sill above the floor; falls back to the settings default. */
+  sill?: number;
+}
+
 export interface Floor {
   id: string;
   name: string;
@@ -75,6 +89,7 @@ export interface Floor {
   rooms: Room[];
   fixtures: Fixture[];
   passages: Passage[];
+  windows: Window[];
 }
 
 export type FurnitureKind =
@@ -87,6 +102,7 @@ export type FurnitureKind =
   | "cabinet"
   | "sofa"
   | "desk"
+  | "piano"
   | "other";
 
 /** A model of furniture you own. `quantity` copies can be placed. */
@@ -106,6 +122,8 @@ export interface FurnitureItem {
   disassembles?: boolean;
   /** May stand inside another item's access zone (e.g. nightstand beside a bed). */
   allowInBedZone?: boolean;
+  /** Must be carried standing up (a piano): can't be tipped on its side or end to fit an opening. */
+  keepUpright?: boolean;
   notes?: string;
 }
 
@@ -143,6 +161,10 @@ export interface Settings {
   furnitureGap: number;
   /** Chair pull-out space required on every side of a table. */
   tableClearance: number;
+  /** Sill height assumed for windows that don't specify one. */
+  defaultSillHeight: number;
+  /** The listed size of the apartment, for checking the trace against. 0 disables. */
+  targetSqFt: number;
 }
 
 export interface Project {

@@ -1,21 +1,28 @@
-import type { Floor, FurnitureItem, FurnitureKind, Passage, PassageKind, Placement, Point, Project, Room, Fixture } from "../types";
+import type { Floor, FurnitureItem, FurnitureKind, Passage, PassageKind, Placement, Point, Project, Room, Fixture, Window } from "../types";
+import type { SolveRequest, SolveResult } from "../engine/solver";
 import { Store, uid, normalize } from "../state";
 import type { PlanCanvas } from "../render/canvas";
 import { OUTSIDE, defaultProject } from "../engine/defaults";
-import { bounds, footprint, fmtFtIn, rect } from "../engine/geometry";
+import { areaSummary, bounds, footprint, fmtFtIn, rect } from "../engine/geometry";
 import { itemFrontClearance } from "../engine/analysis";
 import { roomOfPoint } from "../engine/transport";
 
 const esc = (s: unknown): string => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const KINDS: FurnitureKind[] = ["bed", "nightstand", "dresser", "chest", "shelf", "table", "cabinet", "sofa", "desk", "other"];
+const KINDS: FurnitureKind[] = ["bed", "nightstand", "dresser", "chest", "shelf", "table", "cabinet", "sofa", "desk", "piano", "other"];
 const PASSAGE_KINDS: PassageKind[] = ["door", "opening", "sliding", "exterior", "stair"];
 const n1 = (v: number): string => String(Math.round(v * 100) / 100);
 
 export class Panels {
   private editingItemId: string | null = null;
   private addingItem = false;
-  private open: Record<string, boolean> = { issues: true, inspector: true, bring: false, settings: false };
+  private open: Record<string, boolean> = { issues: true, inspector: true, solver: false, bring: false, settings: false };
   private last = new Map<HTMLElement, string>();
+  private solverRoomId: string | null = null;
+  private solverPicks = new Map<string, number>();
+  private solverBusy: { done: number; total: number } | null = null;
+  private solverMessage = "";
+  private worker: Worker | null = null;
+  private pendingSolve: { roomId: string; picks: { itemId: string; count: number }[] } | null = null;
 
   constructor(
     private store: Store,
@@ -82,6 +89,7 @@ export class Panels {
         </label>
       </div>
       <div class="status">
+        ${this.areaBadge()}
         <span class="pill error" title="Errors">${errors}</span>
         <span class="pill warning" title="Warnings">${warnings}</span>
       </div>
@@ -90,6 +98,17 @@ export class Panels {
         <label class="btn">Import<input type="file" accept="application/json" data-field="import" hidden></label>
         <button data-action="reset" title="Back to the traced apartment and measured furniture">Reset</button>
       </div>`;
+  }
+
+  private areaBadge(): string {
+    const p = this.store.project;
+    const a = areaSummary(p.floors);
+    const target = p.settings.targetSqFt;
+    const off = target ? (a.gross - target) / target : 0;
+    const cls = !target ? "" : Math.abs(off) <= 0.05 ? "ok" : "warn";
+    const per = a.floors.map((f) => `${f.name}: ${Math.round(f.net)} sq ft inside the walls (≈${Math.round(f.gross)} with walls)`).join("\n");
+    const tip = `${per}\nTotal ≈ ${Math.round(a.gross)} sq ft with walls, ${Math.round(a.net)} inside the walls.${target ? ` Listed: ${target.toLocaleString()} sq ft (${off >= 0 ? "+" : ""}${Math.round(off * 100)}%).` : ""}\nGarage and patios are not counted; toggle rooms in Edit plan.`;
+    return `<span class="area ${cls}" title="${esc(tip)}">≈${Math.round(a.gross).toLocaleString()}${target ? ` / ${target.toLocaleString()}` : ""} sq ft</span>`;
   }
 
   private inventory(): string {
@@ -150,7 +169,7 @@ export class Panels {
   }
 
   private itemForm(item: FurnitureItem | null): string {
-    const v = item ?? { id: "", name: "", set: "Other", kind: "other" as FurnitureKind, d: 20, w: 36, h: 30, quantity: 1, frontClearance: undefined, disassembles: false, allowInBedZone: false, notes: "" };
+    const v: Partial<FurnitureItem> & Pick<FurnitureItem, "name" | "set" | "kind" | "d" | "w" | "h" | "quantity"> = item ?? { name: "", set: "Other", kind: "other", d: 20, w: 36, h: 30, quantity: 1 };
     const id = item?.id ?? "new";
     return `
       <form class="item-form" data-item-form="${id}">
@@ -168,6 +187,7 @@ export class Panels {
         </div>
         <label class="check"><input name="disassembles" type="checkbox" ${v.disassembles ? "checked" : ""}> comes apart for the move</label>
         <label class="check"><input name="allowInBedZone" type="checkbox" ${v.allowInBedZone ? "checked" : ""}> may sit beside a bed</label>
+        <label class="check"><input name="keepUpright" type="checkbox" ${(v as FurnitureItem).keepUpright ? "checked" : ""}> must be carried upright (can't tip to fit a door)</label>
         <div class="form-actions">
           <button type="submit" data-action="save-item" data-id="${id}">Save</button>
           <button type="button" data-action="cancel-item">Cancel</button>
@@ -185,6 +205,7 @@ export class Panels {
     if (sel?.type === "placement" && s.placement(sel.id)) parts.push(this.placementInspector(s.placement(sel.id)!));
     else parts.push(`<p class="hint">Click a piece on the plan. Drag to move, <kbd>R</kbd> or double-click to rotate, arrows nudge 1" (<kbd>Shift</kbd> 12"), <kbd>Del</kbd> removes.</p>`);
     parts.push(`</details>`);
+    parts.push(this.solverSection());
     parts.push(this.issuesSection());
     parts.push(this.bringSection());
     parts.push(this.settingsSection());
@@ -232,6 +253,116 @@ export class Panels {
       </div>`;
   }
 
+  private solverSection(): string {
+    const s = this.store;
+    const f = s.floor;
+    const rooms = f.rooms.filter((r) => !r.virtual);
+    if (!this.solverRoomId || !rooms.some((r) => r.id === this.solverRoomId)) {
+      const sel = s.selection;
+      let roomId: string | undefined;
+      if (sel?.type === "placement") {
+        const pl = s.placement(sel.id);
+        const item = pl && s.item(pl.itemId);
+        if (pl && item) {
+          const fp = footprint(pl, item);
+          roomId = roomOfPoint(f, fp.x + fp.w / 2, fp.y + fp.h / 2);
+        }
+      }
+      this.solverRoomId = roomId ?? rooms.find((r) => /bed/i.test(r.name))?.id ?? rooms[0]?.id ?? null;
+      this.solverPicks = this.picksFromRoom(this.solverRoomId);
+    }
+    const busy = this.solverBusy;
+    const pct = busy ? Math.round((100 * busy.done) / Math.max(1, busy.total)) : 0;
+    const pickRows = s.project.furniture
+      .map((item) => {
+        const n = this.solverPicks.get(item.id) ?? 0;
+        return `<label class="pick"><input type="checkbox" data-solver-item="${item.id}" ${n > 0 ? "checked" : ""}> <span>${esc(item.name)} <span class="hint">${esc(item.set)}</span></span>${
+          item.quantity > 1 ? `<input type="number" min="1" max="${item.quantity}" data-solver-count="${item.id}" value="${Math.max(1, n || item.quantity)}" ${n > 0 ? "" : "disabled"}>` : ""
+        }</label>`;
+      })
+      .join("");
+    return `<details data-section="solver" ${this.open.solver ? "open" : ""}><summary>Auto-arrange</summary>
+      <p class="hint">Picks spots for the ticked pieces in one room: heads and backs to walls, nightstands by the bed, doors, swings, walkways, and clearances kept free. Other pieces stay where they are.</p>
+      <label>Room <select data-field="solver-room">${rooms.map((r) => `<option value="${r.id}" ${r.id === this.solverRoomId ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label>
+      <div class="picks">${pickRows}</div>
+      <div class="form-actions">
+        <button data-action="solve" ${busy ? "disabled" : ""}>${busy ? `Arranging… ${pct}%` : "Arrange"}</button>
+        <button data-action="solver-pick-none">Untick all</button>
+      </div>
+      ${this.solverMessage ? `<p class="hint solver-msg">${esc(this.solverMessage)}</p>` : ""}
+    </details>`;
+  }
+
+  private picksFromRoom(roomId: string | null): Map<string, number> {
+    const picks = new Map<string, number>();
+    if (!roomId) return picks;
+    const f = this.store.floor;
+    for (const pl of this.store.project.placements) {
+      if (pl.floorId !== f.id) continue;
+      const item = this.store.item(pl.itemId);
+      if (!item) continue;
+      const fp = footprint(pl, item);
+      if (roomOfPoint(f, fp.x + fp.w / 2, fp.y + fp.h / 2) === roomId) picks.set(item.id, (picks.get(item.id) ?? 0) + 1);
+    }
+    return picks;
+  }
+
+  private solve(): void {
+    const s = this.store;
+    const roomId = this.solverRoomId;
+    if (!roomId || this.solverBusy) return;
+    const picks = [...this.solverPicks.entries()].filter(([, n]) => n > 0).map(([itemId, count]) => ({ itemId, count }));
+    if (!picks.length) {
+      this.solverMessage = "Tick at least one piece.";
+      s.touch();
+      return;
+    }
+    const req: SolveRequest = { project: JSON.parse(JSON.stringify(s.project)), floorId: s.floor.id, roomId, picks, restarts: 3, seed: Date.now() % 100000 };
+    this.solverBusy = { done: 0, total: 1 };
+    this.solverMessage = "";
+    this.pendingSolve = { roomId, picks };
+    s.touch();
+    if (!this.worker) {
+      this.worker = new Worker(new URL("../engine/solver.worker.ts", import.meta.url), { type: "module" });
+      this.worker.onmessage = (e: MessageEvent) => {
+        if (e.data.type === "progress") {
+          this.solverBusy = { done: e.data.done, total: e.data.total };
+          s.touch();
+        } else if (e.data.type === "done" && this.pendingSolve) {
+          const pending = this.pendingSolve;
+          this.pendingSolve = null;
+          this.applySolve(e.data.result, pending.roomId, pending.picks);
+        }
+      };
+      this.worker.onerror = (err) => {
+        this.solverBusy = null;
+        this.solverMessage = `The arranger failed: ${err.message}`;
+        s.touch();
+      };
+    }
+    this.worker.postMessage(req);
+  }
+
+  private applySolve(result: SolveResult, roomId: string, picks: { itemId: string; count: number }[]): void {
+    const s = this.store;
+    this.solverBusy = null;
+    const picked = new Set(picks.map((p) => p.itemId));
+    s.update((p) => {
+      p.placements = p.placements.filter((pl) => !picked.has(pl.itemId));
+      for (const pl of result.placements) p.placements.push({ ...pl, id: uid("pl") });
+    });
+    const room = s.floor.rooms.find((r) => r.id === roomId)?.name ?? "the room";
+    const placed = result.placements.length;
+    const bits = [`Placed ${placed} piece${placed === 1 ? "" : "s"} in ${room}.`];
+    if (result.compromises.length) bits.push(`Compromises: ${result.compromises.map((c) => `${c.name} (${c.problems.join("; ")})`).join(" · ")}.`);
+    if (result.unplaced.length) bits.push(`Couldn't place: ${result.unplaced.map((u) => `${u.name} (${u.reason})`).join("; ")}.`);
+    if (!result.compromises.length && !result.unplaced.length) bits.push("Drag anything you'd rather have elsewhere.");
+    this.solverMessage = bits.join(" ");
+    this.solverPicks = this.picksFromRoom(roomId);
+    s.selection = null;
+    s.touch();
+  }
+
   private issuesSection(): string {
     const s = this.store;
     const floorIssues = s.analysis.issues.filter((i) => i.floorId === s.floor.id);
@@ -275,6 +406,8 @@ export class Panels {
         ${num("furnitureGap", 'Gap between pieces (")')}
         ${num("transportTolerance", 'Moving margin (")', 0.5)}
         ${num("defaultDoorHeight", 'Default door height (")')}
+        ${num("defaultSillHeight", 'Default window sill (")')}
+        ${num("targetSqFt", "Listed size (sq ft)")}
         ${num("snap", 'Snap (")', 0.5)}
         ${num("cellSize", 'Analysis cell (")', 0.5)}
       </div></details>`;
@@ -298,13 +431,17 @@ export class Panels {
         <button data-action="add-room">+ Room</button>
         <button data-action="add-fixture">+ Fixture</button>
         <button data-action="add-passage">+ Door</button>
+        <button data-action="add-window">+ Window</button>
         <button class="danger" data-action="delete-floor" ${s.project.floors.length > 1 ? "" : "disabled"}>Delete floor</button>
       </div>`);
-    const li = (type: "room" | "fixture" | "passage", id: string, name: string, extra = "") =>
+    const li = (type: "room" | "fixture" | "passage" | "window", id: string, name: string, extra = "") =>
       `<li class="${sel?.type === type && sel.id === id ? "selected" : ""}" data-action="select" data-type="${type}" data-id="${id}">${esc(name)}<span class="hint">${extra}</span></li>`;
-    parts.push(`<h3>Rooms</h3><ul class="list">${f.rooms.map((r) => li("room", r.id, r.name, `${fmtFtIn(bounds(r.polygon).w)} × ${fmtFtIn(bounds(r.polygon).h)}`)).join("")}</ul>`);
+    const area = areaSummary([f]).floors[0];
+    parts.push(`<p class="hint">This floor: ${Math.round(area.net)} sq ft inside the walls, ≈${Math.round(area.gross)} sq ft with walls (rooms that count only).</p>`);
+    parts.push(`<h3>Rooms</h3><ul class="list">${f.rooms.map((r) => li("room", r.id, `${r.name}${r.excludeFromArea ? " ·" : ""}`, `${fmtFtIn(bounds(r.polygon).w)} × ${fmtFtIn(bounds(r.polygon).h)}`)).join("")}</ul>`);
     parts.push(`<h3>Fixtures</h3><ul class="list">${f.fixtures.map((r) => li("fixture", r.id, r.name)).join("")}</ul>`);
     parts.push(`<h3>Doors &amp; openings</h3><ul class="list">${f.passages.map((p) => li("passage", p.id, p.name, `${p.kind} ${p.width}"`)).join("")}</ul>`);
+    parts.push(`<h3>Windows</h3><ul class="list">${(f.windows ?? []).map((w) => li("window", w.id, w.name ?? "Window", `${Math.round(Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y))}"`)).join("")}</ul>`);
     if (sel?.type === "room") {
       const r = f.rooms.find((x) => x.id === sel.id);
       if (r) parts.push(this.polygonForm("room", r));
@@ -314,8 +451,24 @@ export class Panels {
     } else if (sel?.type === "passage") {
       const p = f.passages.find((x) => x.id === sel.id);
       if (p) parts.push(this.passageForm(p, f));
+    } else if (sel?.type === "window") {
+      const w = f.windows.find((x) => x.id === sel.id);
+      if (w) parts.push(this.windowForm(w));
     }
     return parts.join("");
+  }
+
+  private windowForm(w: Window): string {
+    const wf = (field: string, label: string, value: string | number | undefined, type = "number") =>
+      `<label>${label} <input type="${type}" step="1" data-win-field="${field}" data-id="${w.id}" value="${value ?? ""}"></label>`;
+    return `<div class="insp">
+      <div class="insp-title">Window</div>
+      ${wf("name", "Name", w.name ?? "", "text")}
+      <div class="row4">${wf("ax", "A x", w.a.x)}${wf("ay", "A y", w.a.y)}${wf("bx", "B x", w.b.x)}${wf("by", "B y", w.b.y)}</div>
+      ${wf("sill", `Sill height (") — blank uses ${this.store.project.settings.defaultSillHeight}"`, w.sill)}
+      <p class="hint">Pieces taller than the sill that stand in front of the window are flagged.</p>
+      <div class="form-actions"><button class="danger" data-action="delete-window" data-id="${w.id}">Delete</button></div>
+    </div>`;
   }
 
   private polygonForm(type: "room" | "fixture", r: Room | Fixture): string {
@@ -337,6 +490,8 @@ export class Panels {
         </div>`
           : ""
       }
+      ${type === "room" ? `<label class="check"><input type="checkbox" data-poly-field="counts" data-type="room" data-id="${r.id}" ${(r as Room).excludeFromArea ? "" : "checked"}> counts toward the square footage</label>
+      <label class="check"><input type="checkbox" data-poly-field="outdoor" data-type="room" data-id="${r.id}" ${(r as Room).outdoor ? "checked" : ""}> outdoor (railing instead of walls)</label>` : ""}
       <label>Corners (x, y per line)<textarea data-poly-field="points" data-type="${type}" data-id="${r.id}" rows="${Math.min(10, r.polygon.length + 1)}">${r.polygon.map((p) => `${n1(p.x)}, ${n1(p.y)}`).join("\n")}</textarea></label>
       <div class="form-actions">
         <button data-action="duplicate-poly" data-type="${type}" data-id="${r.id}">Duplicate</button>
@@ -506,7 +661,7 @@ export class Panels {
       case "add-floor": {
         const fid = uid("floor");
         s.update((p) => {
-          p.floors.push({ id: fid, name: `Floor ${p.floors.length + 1}`, width: 258, height: 480, rooms: [{ id: uid("room"), name: "Room", polygon: rect(6, 6, 144, 132) }], fixtures: [], passages: [] });
+          p.floors.push({ id: fid, name: `Floor ${p.floors.length + 1}`, width: 258, height: 480, rooms: [{ id: uid("room"), name: "Room", polygon: rect(6, 6, 144, 132) }], fixtures: [], passages: [], windows: [] });
           p.activeFloorId = fid;
         });
         break;
@@ -583,6 +738,32 @@ export class Panels {
         s.selection = null;
         s.touch();
         break;
+      case "add-window": {
+        const nid = uid("win");
+        const c = this.viewCentre();
+        s.update((p) => {
+          const f = p.floors.find((x) => x.id === s.floor.id)!;
+          f.windows.push({ id: nid, name: "Window", a: { x: c.x - 18, y: c.y }, b: { x: c.x + 18, y: c.y } });
+        });
+        s.selection = { type: "window", id: nid };
+        s.touch();
+        break;
+      }
+      case "delete-window":
+        s.update((p) => {
+          const f = p.floors.find((x) => x.id === s.floor.id)!;
+          f.windows = f.windows.filter((x) => x.id !== id);
+        });
+        s.selection = null;
+        s.touch();
+        break;
+      case "solve":
+        this.solve();
+        break;
+      case "solver-pick-none":
+        this.solverPicks = new Map();
+        s.touch();
+        break;
     }
   }
 
@@ -624,6 +805,57 @@ export class Panels {
       if (file) this.import(file);
       return;
     }
+    if (d.field === "solver-room") {
+      this.solverRoomId = el.value;
+      this.solverPicks = this.picksFromRoom(el.value);
+      this.solverMessage = "";
+      s.touch();
+      return;
+    }
+    if (d.solverItem) {
+      const item = s.item(d.solverItem);
+      if ((el as HTMLInputElement).checked) this.solverPicks.set(d.solverItem, item?.quantity ?? 1);
+      else this.solverPicks.delete(d.solverItem);
+      s.touch();
+      return;
+    }
+    if (d.solverCount) {
+      const item = s.item(d.solverCount);
+      const n = Math.max(1, Math.min(item?.quantity ?? 1, Math.round(Number(el.value) || 1)));
+      this.solverPicks.set(d.solverCount, n);
+      s.touch();
+      return;
+    }
+    if (d.winField) {
+      const id = d.id!;
+      s.update((p) => {
+        const f = p.floors.find((x) => x.id === s.floor.id)!;
+        const w = f.windows.find((x) => x.id === id);
+        if (!w) return;
+        const num = () => Number(el.value) || 0;
+        switch (d.winField) {
+          case "name":
+            w.name = el.value;
+            break;
+          case "sill":
+            w.sill = el.value === "" ? undefined : Math.max(0, num());
+            break;
+          case "ax":
+            w.a = { ...w.a, x: num() };
+            break;
+          case "ay":
+            w.a = { ...w.a, y: num() };
+            break;
+          case "bx":
+            w.b = { ...w.b, x: num() };
+            break;
+          case "by":
+            w.b = { ...w.b, y: num() };
+            break;
+        }
+      });
+      return;
+    }
     if (d.setting) {
       const key = d.setting as keyof Project["settings"];
       s.update((p) => {
@@ -658,6 +890,8 @@ export class Panels {
         const target = (type === "room" ? f.rooms : f.fixtures).find((r) => r.id === id);
         if (!target) return;
         if (d.polyField === "name") target.name = el.value;
+        else if (d.polyField === "counts") (target as Room).excludeFromArea = !(el as HTMLInputElement).checked || undefined;
+        else if (d.polyField === "outdoor") (target as Room).outdoor = (el as HTMLInputElement).checked || undefined;
         else if (d.polyField === "points") {
           const pts = el.value
             .split(/\n/)
@@ -703,6 +937,7 @@ export class Panels {
       frontClearance: fc === "" ? undefined : Math.max(0, Number(fc) || 0),
       disassembles: fd.get("disassembles") === "on",
       allowInBedZone: fd.get("allowInBedZone") === "on",
+      keepUpright: fd.get("keepUpright") === "on",
     };
     this.store.update((p) => {
       if (id === "new") p.furniture.push({ id: uid("item"), ...data });
