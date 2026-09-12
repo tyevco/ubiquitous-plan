@@ -32,6 +32,7 @@ export class Store {
   hoverIssueId: string | null = null;
   showZones = true;
   showGrid = true;
+  showDimensions = false;
   walkOverlay: WalkOverlay = "none";
   views = new Map<string, View>();
 

@@ -19,6 +19,12 @@ export interface Room {
   excludeFromArea?: boolean;
   /** Outside space (patio, porch): drawn with a railing edge instead of walls. */
   outdoor?: boolean;
+  /** Size printed on the builder's plan, inches (width × depth). */
+  listed?: { w: number; d: number };
+  /** Size you measured on site, inches (width × depth). */
+  measured?: { w: number; d: number };
+  /** Every wall of this room has been checked with a tape. */
+  verified?: boolean;
 }
 
 /** Something built in that furniture can't occupy: an island, a tub, the stairs. */

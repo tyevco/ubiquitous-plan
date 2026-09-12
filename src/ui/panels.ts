@@ -3,7 +3,7 @@ import type { SolveRequest, SolveResult } from "../engine/solver";
 import { Store, uid, normalize } from "../state";
 import type { PlanCanvas } from "../render/canvas";
 import { OUTSIDE, defaultProject } from "../engine/defaults";
-import { areaSummary, bounds, footprint, fmtFtIn, rect } from "../engine/geometry";
+import { areaSummary, bounds, edgeLabel, footprint, fmtFtIn, isOrthogonal, parseLength, parseSize, rect, resizeToBounds, setEdgeLength } from "../engine/geometry";
 import { itemFrontClearance } from "../engine/analysis";
 import { roomOfPoint } from "../engine/transport";
 
@@ -15,7 +15,7 @@ const n1 = (v: number): string => String(Math.round(v * 100) / 100);
 export class Panels {
   private editingItemId: string | null = null;
   private addingItem = false;
-  private open: Record<string, boolean> = { issues: true, inspector: true, solver: false, bring: false, settings: false };
+  private open: Record<string, boolean> = { issues: true, inspector: true, solver: false, bring: false, settings: false, measure: true };
   private last = new Map<HTMLElement, string>();
   private solverRoomId: string | null = null;
   private solverPicks = new Map<string, number>();
@@ -80,6 +80,7 @@ export class Panels {
         <button data-action="fit" title="Fit floor in view">⤢</button>
         <label class="toggle"><input type="checkbox" data-field="showZones" ${s.showZones ? "checked" : ""}> clearances</label>
         <label class="toggle"><input type="checkbox" data-field="showGrid" ${s.showGrid ? "checked" : ""}> grid</label>
+        <label class="toggle"><input type="checkbox" data-field="showDimensions" ${s.showDimensions ? "checked" : ""}> dimensions</label>
         <label class="toggle">walk
           <select data-field="walkOverlay">
             <option value="none" ${s.walkOverlay === "none" ? "selected" : ""}>off</option>
@@ -438,6 +439,7 @@ export class Panels {
       `<li class="${sel?.type === type && sel.id === id ? "selected" : ""}" data-action="select" data-type="${type}" data-id="${id}">${esc(name)}<span class="hint">${extra}</span></li>`;
     const area = areaSummary([f]).floors[0];
     parts.push(`<p class="hint">This floor: ${Math.round(area.net)} sq ft inside the walls, ≈${Math.round(area.gross)} sq ft with walls (rooms that count only).</p>`);
+    parts.push(this.measureSection());
     parts.push(`<h3>Rooms</h3><ul class="list">${f.rooms.map((r) => li("room", r.id, `${r.name}${r.excludeFromArea ? " ·" : ""}`, `${fmtFtIn(bounds(r.polygon).w)} × ${fmtFtIn(bounds(r.polygon).h)}`)).join("")}</ul>`);
     parts.push(`<h3>Fixtures</h3><ul class="list">${f.fixtures.map((r) => li("fixture", r.id, r.name)).join("")}</ul>`);
     parts.push(`<h3>Doors &amp; openings</h3><ul class="list">${f.passages.map((p) => li("passage", p.id, p.name, `${p.kind} ${p.width}"`)).join("")}</ul>`);
@@ -471,6 +473,54 @@ export class Panels {
     </div>`;
   }
 
+  /**
+   * Traced vs listed vs measured size for every room that counts, with a
+   * reconciliation against the listed total.
+   */
+  private measureSection(): string {
+    const p = this.store.project;
+    const target = p.settings.targetSqFt;
+    const rows: string[] = [];
+    let verifiedGross = 0,
+      unverifiedGross = 0;
+    for (const f of p.floors) {
+      for (const r of f.rooms) {
+        if (r.virtual || r.excludeFromArea) continue;
+        const b = bounds(r.polygon);
+        const gross = areaSummary([{ id: f.id, name: f.name, rooms: [r] }]).gross;
+        if (r.verified) verifiedGross += gross;
+        else unverifiedGross += gross;
+        const fmt = (s?: { w: number; d: number }) => (s ? `${fmtFtIn(s.w)} × ${fmtFtIn(s.d)}` : "");
+        const ref = r.measured ?? r.listed;
+        const dw = ref ? b.w - ref.w : 0,
+          dd = ref ? b.h - ref.d : 0;
+        const delta = ref ? `<span class="${Math.abs(dw) <= 2 && Math.abs(dd) <= 2 ? "good" : "warn"}">${dw >= 0 ? "+" : "−"}${Math.abs(Math.round(dw))}" × ${dd >= 0 ? "+" : "−"}${Math.abs(Math.round(dd))}"</span>` : "";
+        const onFloor = f.id === this.store.floor.id;
+        rows.push(`<tr class="${onFloor ? "" : "other-floor"}">
+          <td><a data-action="select-room" data-floor="${f.id}" data-id="${r.id}">${esc(r.name)}</a><div class="hint">${esc(f.name)}</div></td>
+          <td>${fmtFtIn(b.w)} × ${fmtFtIn(b.h)}<div class="hint">${Math.round(gross)} sq ft</div></td>
+          <td><input type="text" class="size" data-size-field="listed" data-floor="${f.id}" data-id="${r.id}" value="${fmt(r.listed)}" placeholder="12' × 11'"></td>
+          <td><input type="text" class="size" data-size-field="measured" data-floor="${f.id}" data-id="${r.id}" value="${fmt(r.measured)}" placeholder="tape"></td>
+          <td>${delta}${r.measured ? `<button class="tiny" data-action="apply-measured" data-floor="${f.id}" data-id="${r.id}" title="Resize the room to the measured size">apply</button>` : ""}</td>
+          <td><input type="checkbox" data-size-field="verified" data-floor="${f.id}" data-id="${r.id}" ${r.verified ? "checked" : ""} title="All walls checked"></td>
+        </tr>`);
+      }
+    }
+    const traced = verifiedGross + unverifiedGross;
+    const need = target - verifiedGross;
+    const recon = target
+      ? `<p class="recon">Traced ≈<b>${Math.round(traced).toLocaleString()}</b> sq ft with walls vs <b>${target.toLocaleString()}</b> listed (${traced >= target ? "+" : "−"}${Math.abs(Math.round(((traced - target) / target) * 100))}%). Verified rooms: ${Math.round(verifiedGross)} sq ft. The unverified rooms must total <b>${Math.round(need).toLocaleString()}</b> sq ft; they're traced at ${Math.round(unverifiedGross)} (${unverifiedGross ? (need >= unverifiedGross ? "+" : "−") + Math.abs(Math.round(((need - unverifiedGross) / unverifiedGross) * 100)) + "%" : "n/a"}).</p>`
+      : "";
+    return `<details data-section="measure" ${this.open.measure ? "open" : ""}><summary>Measure check</summary>
+      <p class="hint">Walk each room with a tape. Type the measured size (e.g. <code>12'2" × 10'6"</code>), or better, select the room and type each wall's length below; tick it when every wall matches. Garage and patios don't count.</p>
+      <div class="table-wrap"><table class="measure">
+        <thead><tr><th>Room</th><th>Traced</th><th>Listed</th><th>Measured</th><th>Δ traced</th><th>✓</th></tr></thead>
+        <tbody>${rows.join("")}</tbody>
+      </table></div>
+      ${recon}
+    </details>`;
+  }
+
   private polygonForm(type: "room" | "fixture", r: Room | Fixture): string {
     const b = bounds(r.polygon);
     const isRect = r.polygon.length === 4 && r.polygon.every((p, i) => {
@@ -492,6 +542,17 @@ export class Panels {
       }
       ${type === "room" ? `<label class="check"><input type="checkbox" data-poly-field="counts" data-type="room" data-id="${r.id}" ${(r as Room).excludeFromArea ? "" : "checked"}> counts toward the square footage</label>
       <label class="check"><input type="checkbox" data-poly-field="outdoor" data-type="room" data-id="${r.id}" ${(r as Room).outdoor ? "checked" : ""}> outdoor (railing instead of walls)</label>` : ""}
+      ${
+        isOrthogonal(r.polygon)
+          ? `<div class="walls"><div class="hint">Wall lengths, clockwise from the first corner. Changing one moves everything beyond its far end.</div>${r.polygon
+              .map((pt, i) => {
+                const q = r.polygon[(i + 1) % r.polygon.length];
+                const len = Math.hypot(q.x - pt.x, q.y - pt.y);
+                return `<label class="wall"><span>${i + 1}. ${edgeLabel(r.polygon, i)}</span><input type="text" data-edge-field="${i}" data-type="${type}" data-id="${r.id}" value="${fmtFtIn(len)}"></label>`;
+              })
+              .join("")}</div>`
+          : ""
+      }
       <label>Corners (x, y per line)<textarea data-poly-field="points" data-type="${type}" data-id="${r.id}" rows="${Math.min(10, r.polygon.length + 1)}">${r.polygon.map((p) => `${n1(p.x)}, ${n1(p.y)}`).join("\n")}</textarea></label>
       <div class="form-actions">
         <button data-action="duplicate-poly" data-type="${type}" data-id="${r.id}">Duplicate</button>
@@ -760,6 +821,21 @@ export class Panels {
       case "solve":
         this.solve();
         break;
+      case "select-room": {
+        const floorId = el.dataset.floor!;
+        if (floorId !== s.project.activeFloorId) s.update((p) => (p.activeFloorId = floorId));
+        s.selection = { type: "room", id };
+        s.touch();
+        break;
+      }
+      case "apply-measured": {
+        const floorId = el.dataset.floor!;
+        s.update((p) => {
+          const room = p.floors.find((x) => x.id === floorId)?.rooms.find((r) => r.id === id);
+          if (room?.measured) resizeToBounds(room.polygon, room.measured.w, room.measured.d);
+        });
+        break;
+      }
       case "solver-pick-none":
         this.solverPicks = new Map();
         s.touch();
@@ -790,7 +866,7 @@ export class Panels {
       s.update((p) => (p.name = el.value));
       return;
     }
-    if (d.field === "showZones" || d.field === "showGrid") {
+    if (d.field === "showZones" || d.field === "showGrid" || d.field === "showDimensions") {
       s[d.field] = (el as HTMLInputElement).checked;
       s.touch();
       return;
@@ -879,6 +955,36 @@ export class Panels {
         const f = p.floors.find((x) => x.id === s.floor.id)!;
         if (d.floorField === "name") f.name = el.value;
         else f[d.floorField as "width" | "height"] = Math.max(24, Number(el.value) || 24);
+      });
+      return;
+    }
+    if (d.edgeField !== undefined) {
+      const len = parseLength(el.value);
+      if (len === null || len <= 0) {
+        s.touch();
+        return;
+      }
+      const type = d.type as "room" | "fixture";
+      const id = d.id!;
+      s.update((p) => {
+        const f = p.floors.find((x) => x.id === s.floor.id)!;
+        const target = (type === "room" ? f.rooms : f.fixtures).find((r) => r.id === id);
+        if (target) setEdgeLength(target.polygon, Number(d.edgeField), len);
+      });
+      return;
+    }
+    if (d.sizeField) {
+      const floorId = d.floor!;
+      const id = d.id!;
+      s.update((p) => {
+        const room = p.floors.find((x) => x.id === floorId)?.rooms.find((r) => r.id === id);
+        if (!room) return;
+        if (d.sizeField === "verified") room.verified = (el as HTMLInputElement).checked || undefined;
+        else {
+          const size = el.value.trim() ? parseSize(el.value) : null;
+          if (el.value.trim() && !size) return;
+          room[d.sizeField as "listed" | "measured"] = size ?? undefined;
+        }
       });
       return;
     }

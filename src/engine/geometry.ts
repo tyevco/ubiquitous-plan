@@ -228,3 +228,73 @@ export function areaSummary(floors: { id: string; name: string; rooms: { polygon
   }
   return out;
 }
+
+/** Parse 12'2", 12' 2", 12.5', 146, or 146" into inches. Returns null if it doesn't parse. */
+export function parseLength(text: string): number | null {
+  const t = text.trim().replace(/[\u2019\u2032]/g, "'").replace(/[\u201d\u2033]/g, '"');
+  if (!t) return null;
+  const m = t.match(/^(-?\d+(?:\.\d+)?)\s*'\s*(?:(\d+(?:\.\d+)?)\s*"?)?$/);
+  if (m) return Number(m[1]) * 12 + (m[2] ? Number(m[2]) : 0);
+  const n = t.match(/^(-?\d+(?:\.\d+)?)\s*(?:"|in)?$/);
+  if (n) return Number(n[1]);
+  const ftOnly = t.match(/^(-?\d+(?:\.\d+)?)\s*ft$/);
+  if (ftOnly) return Number(ftOnly[1]) * 12;
+  return null;
+}
+
+/** Parse "12'2\" x 10'6\"" style pairs. */
+export function parseSize(text: string): { w: number; d: number } | null {
+  const parts = text.split(/[x××by]+/i).map((p) => p.trim()).filter(Boolean);
+  if (parts.length !== 2) return null;
+  const w = parseLength(parts[0]),
+    d = parseLength(parts[1]);
+  if (w === null || d === null || w <= 0 || d <= 0) return null;
+  return { w, d };
+}
+
+export const isOrthogonal = (poly: Polygon): boolean =>
+  poly.every((p, i) => {
+    const q = poly[(i + 1) % poly.length];
+    return p.x === q.x || p.y === q.y;
+  });
+
+/**
+ * Set the length of edge i (from vertex i to i+1) of an orthogonal polygon.
+ * Everything on the far side of the edge's end moves with it, so the rest of
+ * the room stretches rather than skewing.
+ */
+export function setEdgeLength(poly: Polygon, i: number, length: number): void {
+  const n = poly.length;
+  const a = poly[i],
+    b = poly[(i + 1) % n];
+  if (!isOrthogonal(poly) || length <= 0) return;
+  if (a.y === b.y) {
+    const dir = Math.sign(b.x - a.x) || 1;
+    const delta = (length - Math.abs(b.x - a.x)) * dir;
+    const edge = b.x;
+    for (const v of poly) if (dir > 0 ? v.x >= edge : v.x <= edge) v.x += delta;
+  } else {
+    const dir = Math.sign(b.y - a.y) || 1;
+    const delta = (length - Math.abs(b.y - a.y)) * dir;
+    const edge = b.y;
+    for (const v of poly) if (dir > 0 ? v.y >= edge : v.y <= edge) v.y += delta;
+  }
+}
+
+/** Resize a polygon to a new bounding size, anchored at its top-left corner. */
+export function resizeToBounds(poly: Polygon, w: number, d: number): void {
+  const b = bounds(poly);
+  if (b.w <= 0 || b.h <= 0) return;
+  for (const v of poly) {
+    v.x = Math.round((b.x + ((v.x - b.x) * w) / b.w) * 4) / 4;
+    v.y = Math.round((b.y + ((v.y - b.y) * d) / b.h) * 4) / 4;
+  }
+}
+
+/** Names for the walls of an orthogonal polygon, clockwise from the first corner. */
+export function edgeLabel(poly: Polygon, i: number): string {
+  const a = poly[i],
+    b = poly[(i + 1) % poly.length];
+  if (a.y === b.y) return b.x > a.x ? "top (left→right)" : "bottom (right→left)";
+  return b.y > a.y ? "right (top→bottom)" : "left (bottom→top)";
+}

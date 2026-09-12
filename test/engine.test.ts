@@ -4,7 +4,7 @@ import { solveRoom } from "../src/engine/solver";
 import { defaultProject } from "../src/engine/defaults";
 import { analyze, analyzeFloor } from "../src/engine/analysis";
 import { buildGrid, passableMask, flood, nearestPassable } from "../src/engine/grid";
-import { footprint, frontZone, sideZones, doorSwingPolygon, convexPolygonsOverlap, rect, areaSummary, rectsOverlap } from "../src/engine/geometry";
+import { footprint, frontZone, sideZones, doorSwingPolygon, convexPolygonsOverlap, rect, areaSummary, rectsOverlap, parseLength, parseSize, setEdgeLength } from "../src/engine/geometry";
 import type { Placement, Project } from "../src/types";
 
 describe("corner formula", () => {
@@ -226,5 +226,30 @@ describe("raster edges", () => {
     p.placements = [{ id: "a", itemId: "z-shelf", floorId: "second", x: 103, y: 360, rotation: 270 }];
     const a = analyze(p);
     expect(a.issues.filter((i) => i.id === "wall:a")).toEqual([]);
+  });
+});
+
+describe("measuring", () => {
+  it("parses feet-and-inches", () => {
+    expect(parseLength(`12'2"`)).toBe(146);
+    expect(parseLength("12' 2")).toBe(146);
+    expect(parseLength("146")).toBe(146);
+    expect(parseLength("10.5'")).toBe(126);
+    expect(parseLength("abc")).toBeNull();
+    expect(parseSize(`12'2" x 10'6"`)).toEqual({ w: 146, d: 126 });
+  });
+  it("stretches an orthogonal polygon when a wall length changes", () => {
+    const poly = rect(10, 10, 100, 50);
+    setEdgeLength(poly, 0, 120); // top wall, left to right
+    expect(poly).toEqual([{ x: 10, y: 10 }, { x: 130, y: 10 }, { x: 130, y: 60 }, { x: 10, y: 60 }]);
+    setEdgeLength(poly, 1, 40); // right wall, top to bottom
+    expect(poly[2]).toEqual({ x: 130, y: 50 });
+    expect(poly[3]).toEqual({ x: 10, y: 50 });
+    // An L-shape: lengthening the top-left leg moves the notch and everything right of it.
+    const L = [{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 20 }, { x: 100, y: 20 }, { x: 100, y: 80 }, { x: 0, y: 80 }];
+    setEdgeLength(L, 0, 60);
+    expect(L[1]).toEqual({ x: 60, y: 0 });
+    expect(L[3]).toEqual({ x: 110, y: 20 });
+    expect(L[5]).toEqual({ x: 0, y: 80 });
   });
 });

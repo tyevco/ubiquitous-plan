@@ -4,8 +4,10 @@ import { rect } from "./geometry";
 /*
  * The apartment as traced from the builder's marketing floorplan. The only
  * dimensions printed on it are the room labels (Bedroom 1 12'x11', Living
- * 13'x12', Den 9'x9', Bedroom 2 14'x13'); everything else is scaled from the
- * drawing at roughly 20 px per foot and should be verified on site with a tape.
+ * 13'x12', Den 9'x9', Bedroom 2 14'x13'), and the drawing doesn't agree with
+ * them, so rooms are traced to the drawing's proportions (the building is
+ * 258" wide overall) with the labels kept as `listed` for the measure check.
+ * Everything should be verified on site with a tape.
  * Walls are 6" thick; rooms are drawn to their inside faces. The building's
  * top-right corner is recessed on both floors: a porch in front of the entry
  * downstairs and the living-room patio above it. Bath 1 is an en-suite off
@@ -20,31 +22,26 @@ const first: Floor = {
   width: 258,
   height: 480,
   rooms: [
-    { id: "bed1", name: "Bedroom 1", polygon: rect(6, 6, 144, 132) },
-    { id: "closet1", name: "Walk-in closet", polygon: rect(6, 144, 56, 60) },
-    { id: "bath1", name: "Bath 1", polygon: rect(68, 144, 82, 60) },
-    {
-      id: "entry",
-      name: "Entry",
-      // The front door is set back 27" under a porch.
-      polygon: rect(156, 33, 96, 171),
-    },
-    { id: "garage", name: "2-car garage", polygon: rect(6, 210, 246, 264), excludeFromArea: true },
-    { id: "porch", name: "Porch", polygon: rect(158, 3, 94, 24), excludeFromArea: true, outdoor: true },
+    { id: "bed1", name: "Bedroom 1", polygon: rect(6, 6, 146, 122), listed: { w: 144, d: 132 } },
+    { id: "closet1", name: "Walk-in closet", polygon: rect(6, 134, 53, 65) },
+    { id: "bath1", name: "Bath 1", polygon: rect(65, 134, 87, 65) },
+    { id: "entry", name: "Entry", polygon: rect(158, 35, 94, 164) },
+    { id: "garage", name: "2-car garage", polygon: rect(6, 205, 246, 269), excludeFromArea: true },
+    { id: "porch", name: "Porch", polygon: rect(158, 3, 94, 26), excludeFromArea: true, outdoor: true },
   ],
   fixtures: [
-    { id: "stairs1", name: "Stairs up", polygon: rect(204, 66, 48, 96) },
-    { id: "storage1", name: "Storage", polygon: rect(204, 168, 48, 36) },
-    { id: "wh", name: "Water heater", polygon: rect(6, 210, 24, 24) },
-    { id: "wd", name: "W/D", polygon: rect(36, 210, 30, 30) },
-    { id: "gshelf", name: "Shelf", polygon: rect(72, 210, 60, 16) },
-    { id: "vanity1", name: "Vanity", polygon: rect(68, 144, 22, 24) },
-    { id: "toilet1", name: "Toilet", polygon: rect(68, 176, 20, 28) },
-    { id: "tub1", name: "Tub", polygon: rect(120, 144, 30, 60) },
+    { id: "stairs1", name: "Stairs up", polygon: rect(199, 76, 53, 80) },
+    { id: "storage1", name: "Storage", polygon: rect(196, 156, 56, 43) },
+    { id: "wh", name: "Water heater", polygon: rect(6, 206, 22, 22) },
+    { id: "wd", name: "W/D", polygon: rect(33, 206, 35, 35) },
+    { id: "gshelf", name: "Shelf", polygon: rect(73, 206, 63, 15) },
+    { id: "vanity1", name: "Vanity", polygon: rect(65, 134, 26, 24) },
+    { id: "toilet1", name: "Toilet", polygon: rect(66, 170, 20, 26) },
+    { id: "tub1", name: "Tub", polygon: rect(122, 134, 30, 65) },
   ],
   windows: [
-    { id: "w1-bed", name: "Bedroom 1 window", a: { x: 3, y: 36 }, b: { x: 3, y: 114 } },
-    { id: "w1-stair", name: "Stairwell window", a: { x: 255, y: 78 }, b: { x: 255, y: 126 }, sill: 42 },
+    { id: "w1-bed", name: "Bedroom 1 window", a: { x: 3, y: 38 }, b: { x: 3, y: 114 } },
+    { id: "w1-stair", name: "Stairwell window", a: { x: 255, y: 76 }, b: { x: 255, y: 126 }, sill: 42 },
   ],
   passages: [
     {
@@ -52,8 +49,8 @@ const first: Floor = {
       name: "Front door",
       kind: "exterior",
       floorId: "first",
-      a: { x: 180, y: 30 },
-      b: { x: 216, y: 30 },
+      a: { x: 178, y: 32 },
+      b: { x: 214, y: 32 },
       width: 36,
       height: 80,
       rooms: ["porch", "entry"],
@@ -75,8 +72,8 @@ const first: Floor = {
       name: "Bedroom 1 door",
       kind: "door",
       floorId: "first",
-      a: { x: 153, y: 60 },
-      b: { x: 153, y: 90 },
+      a: { x: 155, y: 62 },
+      b: { x: 155, y: 92 },
       width: 30,
       height: 80,
       rooms: ["entry", "bed1"],
@@ -88,8 +85,8 @@ const first: Floor = {
       name: "Bath 1 door",
       kind: "door",
       floorId: "first",
-      a: { x: 90, y: 141 },
-      b: { x: 120, y: 141 },
+      a: { x: 90, y: 131 },
+      b: { x: 120, y: 131 },
       width: 30,
       height: 80,
       rooms: ["bed1", "bath1"],
@@ -101,8 +98,8 @@ const first: Floor = {
       name: "Closet 1 door",
       kind: "door",
       floorId: "first",
-      a: { x: 20, y: 141 },
-      b: { x: 50, y: 141 },
+      a: { x: 26, y: 131 },
+      b: { x: 56, y: 131 },
       width: 30,
       height: 80,
       rooms: ["bed1", "closet1"],
@@ -114,8 +111,8 @@ const first: Floor = {
       name: "Garage entry door",
       kind: "door",
       floorId: "first",
-      a: { x: 162, y: 207 },
-      b: { x: 194, y: 207 },
+      a: { x: 160, y: 202 },
+      b: { x: 192, y: 202 },
       width: 32,
       height: 80,
       rooms: ["entry", "garage"],
@@ -138,14 +135,14 @@ const first: Floor = {
       name: "Stairs",
       kind: "stair",
       floorId: "first",
-      a: { x: 228, y: 162 },
-      b: { x: 228, y: 66 },
-      width: 36,
+      a: { x: 225, y: 156 },
+      b: { x: 225, y: 76 },
+      width: 42,
       rooms: ["entry", "living"],
       // A straight run: you step on at the north end downstairs and off at the
       // south end upstairs. No landing turn, so only width and headroom limit
       // what can be carried up.
-      stair: { width: 42, headroom: 80, landingA: { x: 196, y: 84 }, landingB: { x: 186, y: 205 } },
+      stair: { width: 42, headroom: 80, landingA: { x: 178, y: 80 }, landingB: { x: 186, y: 205 } },
     },
   ],
 };
@@ -167,6 +164,7 @@ const second: Floor = {
         { x: 252, y: 138 },
         { x: 6, y: 138 },
       ],
+      listed: { w: 156, d: 144 },
     },
     { id: "kitchen", name: "Kitchen", polygon: rect(6, 138, 135, 133) },
     {
@@ -181,7 +179,7 @@ const second: Floor = {
         { x: 141, y: 222 },
       ],
     },
-    { id: "den", name: "Den / dining", polygon: rect(146, 228, 106, 98) },
+    { id: "den", name: "Den / dining", polygon: rect(146, 228, 106, 98), listed: { w: 108, d: 108 } },
     { id: "hall2", name: "Bedroom hall", polygon: rect(65, 271, 76, 53) },
     {
       id: "bath2",
@@ -196,7 +194,7 @@ const second: Floor = {
       ],
     },
     { id: "closet2", name: "Walk-in closet", polygon: rect(6, 396, 91, 78) },
-    { id: "bed2", name: "Bedroom 2", polygon: rect(103, 330, 149, 144) },
+    { id: "bed2", name: "Bedroom 2", polygon: rect(103, 330, 149, 144), listed: { w: 168, d: 156 } },
     { id: "patioA", name: "Patio", polygon: rect(158, 6, 68, 30), excludeFromArea: true, outdoor: true },
     { id: "patioB", name: "Patio", polygon: rect(258, 236, 34, 81), excludeFromArea: true, outdoor: true },
   ],

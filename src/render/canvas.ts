@@ -1,7 +1,7 @@
 import type { Floor, Passage, Placement, Point, Polygon } from "../types";
 import type { Store, Selection } from "../state";
 import { accessZones, floorAnchors } from "../engine/analysis";
-import { bounds, doorSwingPolygon, fmtFtIn, footprint, snapTo, type Rect } from "../engine/geometry";
+import { bounds, doorSwingPolygon, fmtFtIn, footprint, pointInPolygon, snapTo, type Rect } from "../engine/geometry";
 import { idx, passageRect } from "../engine/grid";
 
 const KIND_COLORS: Record<string, string> = {
@@ -448,6 +448,19 @@ export class PlanCanvas {
       );
     }
 
+    // Wall lengths: for every room when the toggle is on, else for the selected room in edit mode.
+    for (const r of drawn) {
+      const show = s.showDimensions || (s.mode === "edit" && sel?.type === "room" && sel.id === r.id);
+      if (!show) continue;
+      parts.push(this.dimensionLabels(r.polygon, fs, hairline));
+    }
+    if (s.showDimensions) {
+      for (const x of f.fixtures) {
+        const b = bounds(x.polygon);
+        if (b.w >= 24 && b.h >= 24) parts.push(`<text class="label dim fixture-dim" x="${b.x + b.w / 2}" y="${b.y + b.h - fs(6)}" font-size="${fs(8)}">${fmtFtIn(b.w)} × ${fmtFtIn(b.h)}</text>`);
+      }
+    }
+
     // Doors: leaf and swing arc.
     for (const p of f.passages) {
       if (p.kind === "stair") continue;
@@ -576,6 +589,37 @@ export class PlanCanvas {
     this.svg.innerHTML = `<g transform="translate(${v.tx} ${v.ty}) scale(${v.scale})">${parts.join("")}</g>`;
     this.svg.classList.toggle("placing", !!s.placing);
     this.svg.classList.toggle("edit", s.mode === "edit");
+  }
+
+  /** A length label on each wall of a polygon, just inside the room. */
+  private dimensionLabels(poly: Polygon, fs: (n: number) => number, hairline: string): string {
+    const out: string[] = [];
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i],
+        b = poly[(i + 1) % n];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 8) continue;
+      const mx = (a.x + b.x) / 2,
+        my = (a.y + b.y) / 2;
+      // Normal pointing into the room.
+      let nx = -(b.y - a.y) / len,
+        ny = (b.x - a.x) / len;
+      if (!pointInPolygon({ x: mx + nx, y: my + ny }, poly)) {
+        nx = -nx;
+        ny = -ny;
+      }
+      const off = fs(9);
+      const lx = mx + nx * off,
+        ly = my + ny * off;
+      const vertical = Math.abs(b.y - a.y) > Math.abs(b.x - a.x);
+      const t = fs(5);
+      out.push(`<line class="dim-tick" x1="${a.x + nx * t}" y1="${a.y + ny * t}" x2="${b.x + nx * t}" y2="${b.y + ny * t}" ${hairline}/>`);
+      out.push(
+        `<text class="label dim" x="${lx}" y="${ly}" font-size="${fs(9)}" ${vertical ? `transform="rotate(-90 ${lx} ${ly})"` : ""}>${fmtFtIn(len)}</text>`,
+      );
+    }
+    return out.join("");
   }
 
   private roomCentre(f: Floor, id: string): Point {
