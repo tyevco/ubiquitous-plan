@@ -30,7 +30,10 @@ const first: Floor = {
     { id: "porch", name: "Porch", polygon: rect(158, 3, 94, 26), excludeFromArea: true, outdoor: true },
   ],
   fixtures: [
+    // Straight flight from the hall up to the second floor (confirmed from the
+    // tour); a low wall with balusters runs along its hall side.
     { id: "stairs1", name: "Stairs up", polygon: rect(199, 76, 53, 80), style: "stairs" },
+    { id: "stair-rail1", name: "Stair half wall", polygon: rect(194, 76, 5, 80), style: "halfwall", height: 36 },
     { id: "storage1", name: "Storage", polygon: rect(196, 156, 56, 43) },
     { id: "wh", name: "Water heater", polygon: rect(6, 206, 22, 22) },
     { id: "wd", name: "W/D", polygon: rect(33, 206, 35, 35) },
@@ -72,13 +75,14 @@ const first: Floor = {
       name: "Bedroom 1 door",
       kind: "door",
       floorId: "first",
-      a: { x: 155, y: 62 },
-      b: { x: 155, y: 92 },
+      // Hinged on the south jamb: the open leaf stands beside the bath door.
+      a: { x: 155, y: 78 },
+      b: { x: 155, y: 108 },
       width: 30,
       height: 80,
       rooms: ["entry", "bed1"],
       swingInto: "bed1",
-      hinge: "a",
+      hinge: "b",
     },
     {
       id: "bath1-door",
