@@ -23,7 +23,9 @@ export const OUTSIDE = "outside";
  * drawing's proportions exactly. Interior walls are drawn 6" and doors are
  * given standard widths centred on the gaps the drawing shows. Printed room
  * sizes are kept as `listed` for the measure check: the drawing doesn't quite
- * agree with them (Bedroom 1 draws wider, Bedroom 2 narrower).
+ * agree with them (Bedroom 1 draws wider, Bedroom 2 narrower). Door swings
+ * are read from the arcs on the drawing: hinge "a" is the west or north jamb,
+ * "b" the east or south jamb.
  */
 const INSIDE_W = 265;
 const INSIDE_H = 496;
@@ -95,11 +97,11 @@ const first: Floor = {
   passages: [
     { id: "front-door", name: "Front door", kind: "exterior", floorId: "first", ...hDoor(m1, 58.5, 307, 365, 36), width: 36, height: 80, rooms: ["porch", "entry"], swingInto: "entry", hinge: "a" },
     { id: "porch-steps", name: "Porch", kind: "opening", floorId: "first", a: m1.pt(276, 5), b: m1.pt(431, 5), width: 98, rooms: [OUTSIDE, "porch"] },
-    { id: "bed1-door", name: "Bedroom 1 door", kind: "door", floorId: "first", ...vDoor(m1, 267.5, 151, 206, 32), width: 32, height: 80, rooms: ["entry", "bed1"], swingInto: "bed1", hinge: "b" },
-    { id: "closet1-door", name: "Closet 1 door", kind: "door", floorId: "first", ...hDoor(m1, 217.5, 56, 102, 30), width: 30, height: 80, rooms: ["bed1", "closet1"], swingInto: "closet1", hinge: "a" },
-    { id: "bath1-door", name: "Bath 1 door", kind: "door", floorId: "first", ...hDoor(m1, 217.5, 154, 208, 30), width: 30, height: 80, rooms: ["bed1", "bath1"], swingInto: "bath1", hinge: "a" },
-    { id: "garage-door", name: "Garage entry door", kind: "door", floorId: "first", ...hDoor(m1, 333, 283, 338, 32), width: 32, height: 80, rooms: ["entry", "garage"], swingInto: "entry", hinge: "a" },
-    { id: "storage-door", name: "Storage door", kind: "door", floorId: "first", ...vDoor(m1, 347.5, 275, 322, 30), width: 30, height: 80, rooms: ["entry", "storage"], swingInto: "storage", hinge: "a" },
+    { id: "bed1-door", name: "Bedroom 1 door", kind: "door", floorId: "first", ...vDoor(m1, 267.5, 151, 206, 32), width: 32, height: 80, rooms: ["entry", "bed1"], swingInto: "bed1", hinge: "a" },
+    { id: "closet1-door", name: "Closet 1 door", kind: "door", floorId: "first", ...hDoor(m1, 217.5, 56, 102, 30), width: 30, height: 80, rooms: ["bed1", "closet1"], swingInto: "closet1", hinge: "b" },
+    { id: "bath1-door", name: "Bath 1 door", kind: "door", floorId: "first", ...hDoor(m1, 217.5, 154, 208, 30), width: 30, height: 80, rooms: ["bed1", "bath1"], swingInto: "bath1", hinge: "b" },
+    { id: "garage-door", name: "Garage entry door", kind: "door", floorId: "first", ...hDoor(m1, 333, 283, 338, 32), width: 32, height: 80, rooms: ["entry", "garage"], swingInto: "entry", hinge: "b" },
+    { id: "storage-door", name: "Storage door", kind: "door", floorId: "first", ...vDoor(m1, 347.5, 275, 322, 30), width: 30, height: 80, rooms: ["entry", "storage"], swingInto: "entry", hinge: "b" },
     { id: "garage-overhead", name: "Garage overhead door", kind: "exterior", floorId: "first", a: m1.pt(69, 793), b: m1.pt(379, 793), width: 192, height: 84, rooms: [OUTSIDE, "garage"] },
     {
       id: "stairs",
@@ -185,10 +187,10 @@ const second: Floor = {
     { id: "kitchen-hall", name: "Kitchen ↔ stair landing", kind: "opening", floorId: "second", a: m2.pt(736, 246), b: m2.pt(736, 416), width: m2.y(416) - m2.y(246), rooms: ["kitchen", "hall"] },
     { id: "hall-hall2", name: "Stair landing ↔ bedroom hall", kind: "opening", floorId: "second", a: m2.pt(736, 416), b: m2.pt(805, 416), width: m2.x(805) - m2.x(736), rooms: ["hall", "hall2"] },
     { id: "hall-den", name: "Stair landing ↔ den", kind: "opening", floorId: "second", a: m2.pt(810, 416), b: m2.pt(992, 416), width: m2.x(992) - m2.x(810), rooms: ["hall", "den"] },
-    { id: "patioA-door", name: "Living patio door", kind: "exterior", floorId: "second", ...hDoor(m2, 60, 872, 921, 32), width: 32, height: 80, rooms: ["hall-n", "patioA"], swingInto: "hall-n", hinge: "a" },
-    { id: "bath2-door", name: "Bath 2 door", kind: "door", floorId: "second", ...vDoor(m2, 733, 474, 530, 30), width: 30, height: 80, rooms: ["hall2", "bath2"], swingInto: "bath2", hinge: "a" },
+    { id: "patioA-door", name: "Living patio door", kind: "exterior", floorId: "second", ...hDoor(m2, 60, 872, 921, 32), width: 32, height: 80, rooms: ["hall-n", "patioA"], swingInto: "hall-n", hinge: "b" },
+    { id: "bath2-door", name: "Bath 2 door", kind: "door", floorId: "second", ...vDoor(m2, 733, 474, 530, 30), width: 30, height: 80, rooms: ["hall2", "bath2"], swingInto: "bath2", hinge: "b" },
     { id: "bed2-door", name: "Bedroom 2 door", kind: "door", floorId: "second", ...hDoor(m2, 553.5, 742, 797, 32), width: 32, height: 80, rooms: ["hall2", "bed2"], swingInto: "bed2", hinge: "a" },
-    { id: "closet2-door", name: "Closet 2 door", kind: "door", floorId: "second", ...vDoor(m2, 733, 713, 759, 30), width: 30, height: 80, rooms: ["bed2", "closet2"], swingInto: "closet2", hinge: "a" },
+    { id: "closet2-door", name: "Closet 2 door", kind: "door", floorId: "second", ...vDoor(m2, 733, 713, 759, 30), width: 30, height: 80, rooms: ["bed2", "closet2"], swingInto: "closet2", hinge: "b" },
   ],
 };
 // The top of the stairs opens onto the landing strip south of the treads.
