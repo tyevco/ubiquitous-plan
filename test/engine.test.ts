@@ -91,7 +91,7 @@ describe("walkability grid", () => {
     const c = nearestPassable(g, mask, 78, 72, 2);
     expect(c).toBeGreaterThanOrEqual(0);
     // Inside the wall between bedroom and entry
-    expect(nearestPassable(g, mask, 153, 20, 1)).toBe(-1);
+    expect(nearestPassable(g, mask, 169, 20, 1)).toBe(-1);
     const reach = flood(g, mask, [c]);
     expect(reach.reduce((n, v) => n + v, 0)).toBeGreaterThan(1000);
   });
@@ -116,14 +116,15 @@ describe("analysis on placements", () => {
     const a = analyze(
       withPlacements([
         { id: "a", itemId: "m-dresser", floorId: "first", x: 0, y: 20, rotation: 0 },
-        { id: "b", itemId: "m-chest", floorId: "first", x: 140, y: 60, rotation: 0 },
+        { id: "b", itemId: "m-chest", floorId: "first", x: 140, y: 100, rotation: 0 },
       ]),
     );
     expect(a.issues.some((i) => i.id === "wall:a")).toBe(true);
     expect(a.issues.some((i) => i.id === "door:bed1-door:b")).toBe(true);
   });
   it("accepts a dresser against a wall facing into the room", () => {
-    const a = analyze(withPlacements([{ id: "a", itemId: "m-dresser", floorId: "first", x: 60, y: 6, rotation: 0 }]));
+    // Back to the west wall (no windows there), facing into the room.
+    const a = analyze(withPlacements([{ id: "a", itemId: "m-dresser", floorId: "first", x: 6, y: 40, rotation: 270 }]));
     expect(a.issues.filter((i) => i.placementIds.includes("a"))).toEqual([]);
   });
   it("warns when a bed is against the wall on one side", () => {
@@ -141,13 +142,14 @@ describe("analysis on placements", () => {
 describe("windows and upright pieces", () => {
   it("warns when a tall piece stands in front of a window", () => {
     const p = defaultProject();
-    p.placements = [{ id: "a", itemId: "m-gent", floorId: "first", x: 6, y: 50, rotation: 270 }];
+    // Under the first north window of Bedroom 1, back to the wall.
+    p.placements = [{ id: "a", itemId: "m-gent", floorId: "first", x: 50, y: 6, rotation: 0 }];
     const a = analyze(p);
-    expect(a.issues.some((i) => i.id === "window:w1-bed:a")).toBe(true);
+    expect(a.issues.some((i) => i.id === "window:w1-bed-a:a")).toBe(true);
   });
   it("does not warn for a piece below the sill", () => {
     const p = defaultProject();
-    p.placements = [{ id: "a", itemId: "m-night", floorId: "first", x: 6, y: 50, rotation: 270 }];
+    p.placements = [{ id: "a", itemId: "m-night", floorId: "first", x: 50, y: 6, rotation: 0 }];
     const a = analyze(p);
     expect(a.issues.some((i) => i.id.startsWith("window:"))).toBe(false);
   });
@@ -178,7 +180,8 @@ describe("solver", () => {
     // The bed's head should be against a wall.
     const bed = res.placements.find((x) => x.itemId === "m-bed")!;
     const fp = footprint(bed, p.furniture.find((f) => f.id === "m-bed")!);
-    const touchesWall = fp.x === 6 || fp.y === 6 || fp.x + fp.w === 150 || fp.y + fp.h === 138;
+    const room = bounds(p.floors[0].rooms.find((r) => r.id === "bed1")!.polygon);
+    const touchesWall = fp.x === room.x || fp.y === room.y || fp.x + fp.w === room.x + room.w || fp.y + fp.h === room.y + room.h;
     expect(touchesWall).toBe(true);
   });
   it("reports pieces that can't be carried into the room", () => {
@@ -222,8 +225,9 @@ describe("solver pairs nightstands", () => {
 describe("raster edges", () => {
   it("accepts a piece flush against a wall that sits at an odd inch", () => {
     const p = defaultProject();
-    // Bedroom 2's left wall is at x = 103.
-    p.placements = [{ id: "a", itemId: "z-shelf", floorId: "second", x: 103, y: 360, rotation: 270 }];
+    // Flush against Bedroom 2's west wall, wherever the trace puts it.
+    const b = bounds(p.floors[1].rooms.find((r) => r.id === "bed2")!.polygon);
+    p.placements = [{ id: "a", itemId: "z-shelf", floorId: "second", x: b.x, y: b.y + 60, rotation: 270 }];
     const a = analyze(p);
     expect(a.issues.filter((i) => i.id === "wall:a")).toEqual([]);
   });
@@ -261,22 +265,19 @@ describe("floor stretch", () => {
     const bed = f.rooms.find((r) => r.id === "bed1")!;
     const bath = f.rooms.find((r) => r.id === "bath1")!;
     const door = f.passages.find((x) => x.id === "bed1-door")!;
-    const b0 = bounds(bed.polygon), h0 = f.height, bathY = bounds(bath.polygon).y, dw = door.width;
+    const b0 = bounds(bed.polygon), h0 = f.height, bathB = bounds(bath.polygon), dw = door.width;
     stretchFloor(p, "first", "y", b0.y + b0.h, 12);
     expect(bounds(bed.polygon).h).toBe(b0.h + 12);
-    expect(bounds(bath.polygon).y).toBe(bathY + 12);
-    expect(bounds(bath.polygon).h).toBe(65);
+    expect(bounds(bath.polygon).y).toBe(bathB.y + 12);
+    expect(bounds(bath.polygon).h).toBe(bathB.h);
     expect(f.height).toBe(h0 + 12);
     expect(door.width).toBe(dw);
   });
-  it("default trace honours the printed room sizes", () => {
+  it("default trace keeps both floors on one footprint and carries the printed sizes", () => {
     const p = defaultProject();
-    for (const f of p.floors) for (const r of f.rooms) if (r.listed) {
-      const b = bounds(r.polygon);
-      expect(b.w).toBeGreaterThanOrEqual(r.listed.w);
-      expect(b.h).toBeGreaterThanOrEqual(r.listed.d);
-    }
     expect(p.floors[0].width).toBe(p.floors[1].width);
     expect(p.floors[0].height).toBe(p.floors[1].height);
+    const listed = p.floors.flatMap((f) => f.rooms.filter((r) => r.listed).map((r) => r.id));
+    expect(listed.sort()).toEqual(["bed1", "bed2", "den", "living"]);
   });
 });

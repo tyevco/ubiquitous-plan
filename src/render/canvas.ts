@@ -439,11 +439,12 @@ export class PlanCanvas {
         parts.push(`<text class="label fixture-label" x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${fs(10)}">${esc(x.name)}</text>`);
     }
 
-    // Room labels.
+    // Room labels, at the polygon's area centroid so L-shaped rooms label their bigger leg.
     for (const r of drawn) {
       const b = bounds(r.polygon);
-      const cx = b.x + b.w / 2,
-        cy = b.y + b.h / 2;
+      const c = areaCentroid(r.polygon);
+      const cx = c.x,
+        cy = c.y;
       parts.push(
         `<text class="label room-label" x="${cx}" y="${cy - fs(7)}" font-size="${fs(12)}">${esc(r.name)}</text>` +
           `<text class="label room-dim" x="${cx}" y="${cy + fs(8)}" font-size="${fs(10)}">${fmtFtIn(b.w)} × ${fmtFtIn(b.h)}</text>`,
@@ -758,6 +759,24 @@ export class PlanCanvas {
     this.overlayCache = { key, url };
     return url;
   }
+}
+
+/** Centroid of a polygon's area (falls back to the bounding-box centre for degenerate shapes). */
+function areaCentroid(poly: Polygon): Point {
+  let a = 0,
+    cx = 0,
+    cy = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const cross = poly[j].x * poly[i].y - poly[i].x * poly[j].y;
+    a += cross;
+    cx += (poly[j].x + poly[i].x) * cross;
+    cy += (poly[j].y + poly[i].y) * cross;
+  }
+  if (Math.abs(a) < 1e-6) {
+    const b = bounds(poly);
+    return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+  }
+  return { x: cx / (3 * a), y: cy / (3 * a) };
 }
 
 /** Move one vertex; for orthogonal polygons drag the neighbours so edges stay axis-aligned. */
