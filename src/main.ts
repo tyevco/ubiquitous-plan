@@ -24,6 +24,8 @@ const render = (): void => {
   });
 };
 store.subscribe(render);
+// Debug/automation hook: lets scripts drive the view (used to render room close-ups).
+(window as unknown as { __plan: unknown }).__plan = { store, canvas };
 document.title = `${store.project.name} · Floorplan`;
 render();
 requestAnimationFrame(() => canvas.fit());
