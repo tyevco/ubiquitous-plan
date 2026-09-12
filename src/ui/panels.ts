@@ -540,6 +540,16 @@ export class Panels {
         </div>`
           : ""
       }
+      ${
+        type === "fixture"
+          ? `<label>Draw as <select data-poly-field="style" data-type="fixture" data-id="${r.id}">
+          <option value="" ${!(r as Fixture).style ? "selected" : ""}>built-in (counter, tub, island)</option>
+          <option value="halfwall" ${(r as Fixture).style === "halfwall" ? "selected" : ""}>half wall / railing</option>
+          <option value="wall" ${(r as Fixture).style === "wall" ? "selected" : ""}>wall segment / column</option>
+          <option value="stairs" ${(r as Fixture).style === "stairs" ? "selected" : ""}>stair treads</option>
+        </select></label>`
+          : ""
+      }
       ${type === "room" ? `<label class="check"><input type="checkbox" data-poly-field="counts" data-type="room" data-id="${r.id}" ${(r as Room).excludeFromArea ? "" : "checked"}> counts toward the square footage</label>
       <label class="check"><input type="checkbox" data-poly-field="outdoor" data-type="room" data-id="${r.id}" ${(r as Room).outdoor ? "checked" : ""}> outdoor (railing instead of walls)</label>` : ""}
       ${
@@ -998,6 +1008,7 @@ export class Panels {
         if (d.polyField === "name") target.name = el.value;
         else if (d.polyField === "counts") (target as Room).excludeFromArea = !(el as HTMLInputElement).checked || undefined;
         else if (d.polyField === "outdoor") (target as Room).outdoor = (el as HTMLInputElement).checked || undefined;
+        else if (d.polyField === "style") (target as Fixture).style = (el.value || undefined) as Fixture["style"];
         else if (d.polyField === "points") {
           const pts = el.value
             .split(/\n/)

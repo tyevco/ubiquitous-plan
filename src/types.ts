@@ -32,8 +32,10 @@ export interface Fixture {
   id: string;
   name: string;
   polygon: Polygon;
-  /** Height in inches; 0 or undefined means full height. Reserved for future use. */
+  /** Height in inches; 0 or undefined means full height. */
   height?: number;
+  /** How to draw it: a built-in (default), a half-height pony wall, a full wall segment, or stair treads. */
+  style?: "halfwall" | "wall" | "stairs";
 }
 
 export type PassageKind =
