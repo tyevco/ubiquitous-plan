@@ -98,6 +98,8 @@ export interface Floor {
   fixtures: Fixture[];
   passages: Passage[];
   windows: Window[];
+  /** The builder's drawing laid under/over the trace: where the whole image sits, in plan inches. */
+  overlay?: { image: string; x: number; y: number; w: number; h: number; opacity?: number };
 }
 
 export type FurnitureKind =

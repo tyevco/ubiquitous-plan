@@ -15,7 +15,7 @@ const n1 = (v: number): string => String(Math.round(v * 100) / 100);
 export class Panels {
   private editingItemId: string | null = null;
   private addingItem = false;
-  private open: Record<string, boolean> = { issues: true, inspector: true, solver: false, bring: false, settings: false, measure: true };
+  private open: Record<string, boolean> = { issues: true, inspector: true, solver: false, bring: false, settings: false, measure: true, overlay: false };
   private last = new Map<HTMLElement, string>();
   private solverRoomId: string | null = null;
   private solverPicks = new Map<string, number>();
@@ -81,6 +81,7 @@ export class Panels {
         <label class="toggle"><input type="checkbox" data-field="showZones" ${s.showZones ? "checked" : ""}> clearances</label>
         <label class="toggle"><input type="checkbox" data-field="showGrid" ${s.showGrid ? "checked" : ""}> grid</label>
         <label class="toggle"><input type="checkbox" data-field="showDimensions" ${s.showDimensions ? "checked" : ""}> dimensions</label>
+        ${s.floor.overlay ? `<label class="toggle"><input type="checkbox" data-field="showPlan" ${s.showPlan ? "checked" : ""}> plan</label>` : ""}
         <label class="toggle">walk
           <select data-field="walkOverlay">
             <option value="none" ${s.walkOverlay === "none" ? "selected" : ""}>off</option>
@@ -428,6 +429,20 @@ export class Panels {
         <label>W <input type="number" data-floor-field="width" value="${f.width}"></label>
         <label>H <input type="number" data-floor-field="height" value="${f.height}"></label>
       </div>
+      ${
+        f.overlay
+          ? `<details data-section="overlay" ${this.open.overlay ? "open" : ""}><summary>Plan overlay position</summary>
+        <p class="hint">Where the builder's drawing sits under the trace, in inches. Nudge these if the overlay drifts from the walls.</p>
+        <div class="row4">
+          <label>X <input type="number" step="0.5" data-overlay-field="x" value="${Math.round(f.overlay.x * 2) / 2}"></label>
+          <label>Y <input type="number" step="0.5" data-overlay-field="y" value="${Math.round(f.overlay.y * 2) / 2}"></label>
+          <label>W <input type="number" step="0.5" data-overlay-field="w" value="${Math.round(f.overlay.w * 2) / 2}"></label>
+          <label>H <input type="number" step="0.5" data-overlay-field="h" value="${Math.round(f.overlay.h * 2) / 2}"></label>
+        </div>
+        <label>Opacity <input type="range" min="0.1" max="1" step="0.05" data-overlay-field="opacity" value="${f.overlay.opacity ?? 0.55}"></label>
+      </details>`
+          : ""
+      }
       <div class="form-actions">
         <button data-action="add-room">+ Room</button>
         <button data-action="add-fixture">+ Fixture</button>
@@ -893,7 +908,7 @@ export class Panels {
       s.update((p) => (p.name = el.value));
       return;
     }
-    if (d.field === "showZones" || d.field === "showGrid" || d.field === "showDimensions") {
+    if (d.field === "showZones" || d.field === "showGrid" || d.field === "showDimensions" || d.field === "showPlan") {
       s[d.field] = (el as HTMLInputElement).checked;
       s.touch();
       return;
@@ -974,6 +989,16 @@ export class Panels {
         if (!pl) return;
         if (d.plField === "rotation") pl.rotation = Number(el.value) as 0;
         else pl[d.plField as "x" | "y"] = Number(el.value) || 0;
+      });
+      return;
+    }
+    if (d.overlayField) {
+      s.update((p) => {
+        const f = p.floors.find((x) => x.id === s.floor.id)!;
+        if (!f.overlay) return;
+        const v = Number(el.value);
+        if (!Number.isFinite(v)) return;
+        (f.overlay as unknown as Record<string, number>)[d.overlayField!] = v;
       });
       return;
     }
