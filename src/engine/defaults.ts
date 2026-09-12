@@ -6,7 +6,9 @@ import { rect } from "./geometry";
  * dimensions printed on it are the room labels (Bedroom 1 12'x11', Living
  * 13'x12', Den 9'x9', Bedroom 2 14'x13'); everything else is scaled from the
  * drawing at roughly 20 px per foot and should be verified on site with a tape.
- * Walls are 6" thick; rooms are drawn to their inside faces.
+ * Walls are 6" thick; rooms are drawn to their inside faces. The first floor's
+ * front entry is recessed under a porch, Bath 1 is an en-suite off Bedroom 1,
+ * and the stairwell's outer wall steps in beside the stairs.
  */
 
 export const OUTSIDE = "outside";
@@ -20,18 +22,46 @@ const first: Floor = {
     { id: "bed1", name: "Bedroom 1", polygon: rect(6, 6, 144, 132) },
     { id: "closet1", name: "Walk-in closet", polygon: rect(6, 144, 56, 60) },
     { id: "bath1", name: "Bath 1", polygon: rect(68, 144, 82, 60) },
-    { id: "entry", name: "Entry", polygon: rect(156, 6, 96, 198) },
+    {
+      id: "entry",
+      name: "Entry",
+      // The front door is set back under a porch (27" deep) and the stairwell's
+      // outer wall steps in 6" beside the stairs.
+      polygon: [
+        { x: 156, y: 33 },
+        { x: 252, y: 33 },
+        { x: 252, y: 72 },
+        { x: 246, y: 72 },
+        { x: 246, y: 126 },
+        { x: 252, y: 126 },
+        { x: 252, y: 204 },
+        { x: 156, y: 204 },
+      ],
+    },
     { id: "garage", name: "2-car garage", polygon: rect(6, 210, 246, 264) },
   ],
   fixtures: [
-    { id: "stairs1", name: "Stairs up", polygon: rect(204, 66, 48, 96) },
+    {
+      id: "stairs1",
+      name: "Stairs up",
+      polygon: [
+        { x: 204, y: 66 },
+        { x: 252, y: 66 },
+        { x: 252, y: 72 },
+        { x: 246, y: 72 },
+        { x: 246, y: 126 },
+        { x: 252, y: 126 },
+        { x: 252, y: 162 },
+        { x: 204, y: 162 },
+      ],
+    },
     { id: "storage1", name: "Storage", polygon: rect(204, 168, 48, 36) },
     { id: "wh", name: "Water heater", polygon: rect(6, 210, 24, 24) },
     { id: "wd", name: "W/D", polygon: rect(36, 210, 30, 30) },
     { id: "gshelf", name: "Shelf", polygon: rect(72, 210, 60, 16) },
-    { id: "tub1", name: "Tub", polygon: rect(68, 144, 30, 60) },
-    { id: "toilet1", name: "Toilet", polygon: rect(104, 180, 20, 24) },
-    { id: "vanity1", name: "Vanity", polygon: rect(104, 144, 46, 22) },
+    { id: "vanity1", name: "Vanity", polygon: rect(68, 144, 22, 24) },
+    { id: "toilet1", name: "Toilet", polygon: rect(68, 176, 20, 28) },
+    { id: "tub1", name: "Tub", polygon: rect(120, 144, 30, 60) },
   ],
   passages: [
     {
@@ -39,8 +69,8 @@ const first: Floor = {
       name: "Front door",
       kind: "exterior",
       floorId: "first",
-      a: { x: 180, y: 3 },
-      b: { x: 216, y: 3 },
+      a: { x: 180, y: 30 },
+      b: { x: 216, y: 30 },
       width: 36,
       height: 80,
       rooms: [OUTSIDE, "entry"],
@@ -65,13 +95,13 @@ const first: Floor = {
       name: "Bath 1 door",
       kind: "door",
       floorId: "first",
-      a: { x: 153, y: 168 },
-      b: { x: 153, y: 198 },
+      a: { x: 90, y: 141 },
+      b: { x: 120, y: 141 },
       width: 30,
       height: 80,
-      rooms: ["entry", "bath1"],
+      rooms: ["bed1", "bath1"],
       swingInto: "bath1",
-      hinge: "b",
+      hinge: "a",
     },
     {
       id: "closet1-door",
