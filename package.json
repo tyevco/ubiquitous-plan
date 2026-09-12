@@ -1,0 +1,19 @@
+{
+  "name": "ubiquitous-plan",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Floorplan layout manager: plan where furniture goes, check clearances and walkability, and see what fits through the doors.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}
