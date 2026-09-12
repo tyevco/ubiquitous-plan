@@ -33,6 +33,7 @@ export class Store {
   showZones = true;
   showGrid = true;
   showDimensions = false;
+  showPlan = false;
   walkOverlay: WalkOverlay = "none";
   views = new Map<string, View>();
 

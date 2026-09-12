@@ -35,7 +35,11 @@ interface Mapper {
   y: (py: number) => number;
   pt: (px: number, py: number) => Point;
   rect: (x0: number, y0: number, x1: number, y1: number) => Polygon;
+  /** Where the whole 1068 x 844 plan image sits in this floor's inches, for the overlay. */
+  overlay: Floor["overlay"];
 }
+
+const PLAN_IMAGE = { name: "plan.png", w: 1068, h: 844 };
 
 function mapper(ox: number, oy: number, pxWide: number, pxTall: number): Mapper {
   const sx = INSIDE_W / pxWide;
@@ -43,7 +47,13 @@ function mapper(ox: number, oy: number, pxWide: number, pxTall: number): Mapper 
   const r = (v: number): number => Math.round(v * 2) / 2;
   const x = (px: number): number => r(6 + (px - ox) * sx);
   const y = (py: number): number => r(6 + (py - oy) * sy);
-  return { x, y, pt: (px, py) => ({ x: x(px), y: y(py) }), rect: (x0, y0, x1, y1) => rect(x(x0), y(y0), x(x1) - x(x0), y(y1) - y(y0)) };
+  return {
+    x,
+    y,
+    pt: (px, py) => ({ x: x(px), y: y(py) }),
+    rect: (x0, y0, x1, y1) => rect(x(x0), y(y0), x(x1) - x(x0), y(y1) - y(y0)),
+    overlay: { image: PLAN_IMAGE.name, x: 6 - ox * sx, y: 6 - oy * sy, w: PLAN_IMAGE.w * sx, h: PLAN_IMAGE.h * sy, opacity: 0.55 },
+  };
 }
 
 /** Door on a vertical wall: wall centre px, gap top..bottom px, standard width centred on the gap. */
@@ -63,6 +73,7 @@ const first: Floor = {
   name: "First floor",
   width: 277,
   height: 508,
+  overlay: m1.overlay,
   rooms: [
     { id: "bed1", name: "Bedroom 1", polygon: m1.rect(13, 12, 265, 215), listed: { w: 144, d: 132 } },
     { id: "closet1", name: "Walk-in closet", polygon: m1.rect(13, 220, 109, 328) },
@@ -125,6 +136,7 @@ const second: Floor = {
   name: "Second floor",
   width: 277,
   height: 508,
+  overlay: m2.overlay,
   rooms: [
     { id: "living", name: "Living", polygon: m2.rect(575, 14, 826, 246), listed: { w: 156, d: 144 } },
     {

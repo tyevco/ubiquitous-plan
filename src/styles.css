@@ -208,3 +208,6 @@ button.tiny { padding: 1px 6px; font-size: 11px; margin-top: 2px; }
 .wall { display: grid; grid-template-columns: 1fr 90px; gap: 6px; align-items: center; margin: 3px 0; }
 .wall span { color: var(--ink); font-size: 12px; }
 code { font-size: 11px; background: #f0eee9; padding: 0 3px; border-radius: 3px; }
+
+/* Plan overlay */
+.plan-overlay { mix-blend-mode: multiply; pointer-events: none; }

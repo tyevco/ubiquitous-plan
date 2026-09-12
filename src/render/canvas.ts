@@ -4,6 +4,11 @@ import { accessZones, floorAnchors } from "../engine/analysis";
 import { bounds, doorSwingPolygon, fmtFtIn, footprint, pointInPolygon, snapTo, type Rect } from "../engine/geometry";
 import { idx, passageRect } from "../engine/grid";
 
+/** Bundled drawings that a floor's overlay can reference by name. */
+const OVERLAY_IMAGES: Record<string, string> = {
+  "plan.png": new URL("../../docs/plan/plan.png", import.meta.url).href,
+};
+
 const KIND_COLORS: Record<string, string> = {
   bed: "#c7d7f5",
   nightstand: "#dbe6f7",
@@ -410,6 +415,15 @@ export class PlanCanvas {
       if (p.kind === "stair") continue;
       const r = passageRect(p, 3.5);
       parts.push(`<rect class="opening" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
+    }
+
+    // The builder's drawing over the trace, clipped to the floor.
+    if (s.showPlan && f.overlay && OVERLAY_IMAGES[f.overlay.image]) {
+      const o = f.overlay;
+      parts.push(
+        `<clipPath id="floor-clip"><rect x="0" y="0" width="${f.width}" height="${f.height}"/></clipPath>` +
+          `<image class="plan-overlay" href="${OVERLAY_IMAGES[o.image]}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" preserveAspectRatio="none" opacity="${o.opacity ?? 0.55}" clip-path="url(#floor-clip)"/>`,
+      );
     }
 
     // Windows: a light bar in the wall.
