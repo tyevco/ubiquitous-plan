@@ -1,7 +1,7 @@
-import type { Floor, Passage, Placement, Point, Polygon } from "../types";
+import type { Passage, Placement, Point, Polygon } from "../types";
 import type { Store, Selection } from "../state";
-import { accessZones, floorAnchors } from "../engine/analysis";
-import { bounds, doorSwingPolygon, fmtFtIn, footprint, pointInPolygon, snapTo, type Rect } from "../engine/geometry";
+import { accessZones, doorSwing, floorAnchors } from "../engine/analysis";
+import { bounds, fmtFtIn, footprint, pointInPolygon, snapTo, type Rect } from "../engine/geometry";
 import { idx, passageRect } from "../engine/grid";
 
 /** Bundled drawings that a floor's overlay can reference by name. */
@@ -484,10 +484,9 @@ export class PlanCanvas {
       const selected = sel?.type === "passage" && sel.id === p.id;
       const editable = s.mode === "edit";
       const attrs = editable ? `data-kind="passage" data-id="${p.id}"` : "";
-      if (p.swingInto && p.hinge) {
+      const swing = doorSwing(p, f);
+      if (swing) {
         const hinge = p.hinge === "a" ? p.a : p.b;
-        const into = this.roomCentre(f, p.swingInto);
-        const swing = doorSwingPolygon(p.a, p.b, hinge, into);
         parts.push(`<polygon class="swing${selected ? " selected" : ""}" points="${pts(swing)}" ${attrs} ${hairline}/>`);
         const tip = swing[swing.length - 1];
         parts.push(`<line class="leaf" x1="${hinge.x}" y1="${hinge.y}" x2="${tip.x}" y2="${tip.y}" ${hairline}/>`);
@@ -647,12 +646,6 @@ export class PlanCanvas {
     return out.join("");
   }
 
-  private roomCentre(f: Floor, id: string): Point {
-    const r = f.rooms.find((x) => x.id === id);
-    if (!r) return { x: 0, y: 0 };
-    const b = bounds(r.polygon);
-    return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-  }
 
   private frontMark(p: Placement, fp: Rect, hairline: string): string {
     const t = 2.5;
