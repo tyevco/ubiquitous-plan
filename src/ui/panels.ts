@@ -82,6 +82,7 @@ export class Panels {
         <label class="toggle"><input type="checkbox" data-field="showGrid" ${s.showGrid ? "checked" : ""}> grid</label>
         <label class="toggle"><input type="checkbox" data-field="showDimensions" ${s.showDimensions ? "checked" : ""}> dimensions</label>
         ${s.floor.overlay ? `<label class="toggle"><input type="checkbox" data-field="showPlan" ${s.showPlan ? "checked" : ""}> plan</label>` : ""}
+        ${s.showPlan ? `<label class="toggle" title="Fade the traced walls and rooms to see the drawing underneath">trace <input type="range" min="0.05" max="1" step="0.05" data-field="traceOpacity" value="${s.traceOpacity}"></label>` : ""}
         <label class="toggle">walk
           <select data-field="walkOverlay">
             <option value="none" ${s.walkOverlay === "none" ? "selected" : ""}>off</option>
@@ -894,6 +895,11 @@ export class Panels {
 
   private onInput(e: Event): void {
     const el = e.target as HTMLInputElement;
+    if (el.dataset.field === "traceOpacity") {
+      this.store.traceOpacity = Math.max(0.05, Math.min(1, Number(el.value) || 1));
+      this.store.touch();
+      return;
+    }
     if (el.dataset.field === "project-name") {
       this.store.project.name = el.value;
       document.title = `${el.value} · Floorplan`;
@@ -910,6 +916,11 @@ export class Panels {
     }
     if (d.field === "showZones" || d.field === "showGrid" || d.field === "showDimensions" || d.field === "showPlan") {
       s[d.field] = (el as HTMLInputElement).checked;
+      s.touch();
+      return;
+    }
+    if (d.field === "traceOpacity") {
+      s.traceOpacity = Math.max(0.05, Math.min(1, Number(el.value) || 1));
       s.touch();
       return;
     }

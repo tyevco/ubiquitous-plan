@@ -1,5 +1,5 @@
 import type { FurnitureItem, Placement, Project, Room } from "../types";
-import { accessZones, analyzeFloor, type Issue } from "./analysis";
+import { accessZones, analyzeFloor, doorSwing, type Issue } from "./analysis";
 import { bounds, convexPolygonsOverlap, doorSwingPolygon, footprint, pointInPolygon, rectToPolygon, rectsOverlap, type Rect } from "./geometry";
 import { buildGrid, idx, passageRect, type Grid } from "./grid";
 import { transportReport } from "./transport";
@@ -150,11 +150,8 @@ export function solveRoom(req: SolveRequest, progress?: Progress): SolveResult {
     if (p.kind === "opening" && p.width >= 48) continue;
     doorRects.push(passageRect(p, 6));
     doorZones.push(passageRect(p, s.mainPathWidth));
-    if (p.swingInto && p.hinge) {
-      const into = floor.rooms.find((r) => r.id === p.swingInto);
-      const c = into ? bounds(into.polygon) : roomB;
-      swings.push(doorSwingPolygon(p.a, p.b, p.hinge === "a" ? p.a : p.b, { x: c.x + c.w / 2, y: c.y + c.h / 2 }));
-    }
+    const sw = doorSwing(p, floor);
+    if (sw) swings.push(sw);
   }
   const landings: { x: number; y: number }[] = [];
   const roomIds = new Set(floor.rooms.map((r) => r.id));

@@ -143,14 +143,16 @@ const second: Floor = {
       id: "hall-n",
       name: "Stair side",
       // Between the living room and the stairs, under the patio notch.
-      polygon: [m2.pt(831, 63), m2.pt(992, 63), m2.pt(992, 140), m2.pt(870, 140), m2.pt(870, 246), m2.pt(826, 246), m2.pt(826, 63)],
+      polygon: [m2.pt(831, 63), m2.pt(992, 63), m2.pt(992, 130), m2.pt(905, 130), m2.pt(905, 246), m2.pt(826, 246), m2.pt(826, 63)],
     },
     { id: "patioA", name: "Patio", polygon: m2.rect(831, 14, 992, 57), excludeFromArea: true, outdoor: true },
     { id: "kitchen", name: "Kitchen", polygon: m2.rect(575, 246, 736, 464) },
     {
       id: "hall",
       name: "Stair landing",
-      polygon: [m2.pt(736, 246), m2.pt(870, 246), m2.pt(870, 380), m2.pt(992, 380), m2.pt(992, 416), m2.pt(736, 416)],
+      // Runs along the west side of the stairs; the half wall stops at y 293 so the
+      // top of the flight is open to the west, and the strip south of the treads is floor.
+      polygon: [m2.pt(736, 246), m2.pt(905, 246), m2.pt(905, 293), m2.pt(913, 293), m2.pt(913, 380), m2.pt(992, 380), m2.pt(992, 416), m2.pt(736, 416)],
     },
     { id: "hall2", name: "Bedroom hall", polygon: m2.rect(736, 416, 805, 551) },
     { id: "den", name: "Den / dining", polygon: m2.rect(810, 416, 992, 551), listed: { w: 108, d: 108 } },
@@ -159,13 +161,15 @@ const second: Floor = {
     { id: "bed2", name: "Bedroom 2", polygon: m2.rect(742, 556, 992, 797), listed: { w: 168, d: 156 } },
   ],
   fixtures: [
-    { id: "stairs2", name: "Stairs down", polygon: m2.rect(885, 145, 992, 380), style: "stairs" },
+    { id: "stairs2", name: "Stairs down", polygon: m2.rect(913, 138, 992, 380), style: "stairs" },
     {
       id: "stair-wall",
       name: "Stair half wall",
       style: "halfwall",
       height: 42,
-      polygon: [m2.pt(870, 140), m2.pt(992, 140), m2.pt(992, 145), m2.pt(885, 145), m2.pt(885, 380), m2.pt(870, 380)],
+      // The plan draws it as a white bar: north return along the top of the run,
+      // west leg only two-thirds of the way down, so you step off westward.
+      polygon: [m2.pt(905, 130), m2.pt(992, 130), m2.pt(992, 138), m2.pt(913, 138), m2.pt(913, 293), m2.pt(905, 293)],
     },
     { id: "pantry", name: "Pantry", polygon: m2.rect(575, 239, 613, 306) },
     { id: "counter-w1", name: "Counter", polygon: m2.rect(575, 306, 615, 330) },
@@ -195,7 +199,7 @@ const second: Floor = {
     { id: "living-halln", name: "Living ↔ stair side", kind: "opening", floorId: "second", a: m2.pt(826, 63), b: m2.pt(826, 246), width: m2.y(246) - m2.y(63), rooms: ["living", "hall-n"] },
     { id: "living-kitchen", name: "Living ↔ kitchen", kind: "opening", floorId: "second", a: m2.pt(613, 246), b: m2.pt(736, 246), width: m2.x(736) - m2.x(613), rooms: ["living", "kitchen"] },
     { id: "living-hall", name: "Living ↔ stair landing", kind: "opening", floorId: "second", a: m2.pt(736, 246), b: m2.pt(826, 246), width: m2.x(826) - m2.x(736), rooms: ["living", "hall"] },
-    { id: "halln-hall", name: "Stair side ↔ stair landing", kind: "opening", floorId: "second", a: m2.pt(826, 246), b: m2.pt(870, 246), width: m2.x(870) - m2.x(826), rooms: ["hall-n", "hall"] },
+    { id: "halln-hall", name: "Stair side ↔ stair landing", kind: "opening", floorId: "second", a: m2.pt(826, 246), b: m2.pt(905, 246), width: m2.x(905) - m2.x(826), rooms: ["hall-n", "hall"] },
     { id: "kitchen-hall", name: "Kitchen ↔ stair landing", kind: "opening", floorId: "second", a: m2.pt(736, 246), b: m2.pt(736, 416), width: m2.y(416) - m2.y(246), rooms: ["kitchen", "hall"] },
     { id: "hall-hall2", name: "Stair landing ↔ bedroom hall", kind: "opening", floorId: "second", a: m2.pt(736, 416), b: m2.pt(805, 416), width: m2.x(805) - m2.x(736), rooms: ["hall", "hall2"] },
     { id: "hall-den", name: "Stair landing ↔ den", kind: "opening", floorId: "second", a: m2.pt(810, 416), b: m2.pt(992, 416), width: m2.x(992) - m2.x(810), rooms: ["hall", "den"] },
@@ -206,7 +210,7 @@ const second: Floor = {
   ],
 };
 // The top of the stairs opens onto the landing strip south of the treads.
-first.passages.find((p) => p.id === "stairs")!.stair!.landingB = m2.pt(940, 400);
+first.passages.find((p) => p.id === "stairs")!.stair!.landingB = m2.pt(893, 340);
 
 export const defaultSettings: Settings = {
   mainPathWidth: 36,

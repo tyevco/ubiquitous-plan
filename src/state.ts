@@ -34,6 +34,8 @@ export class Store {
   showGrid = true;
   showDimensions = false;
   showPlan = false;
+  /** Opacity of the traced walls, rooms, fixtures, and doors (furniture stays solid). */
+  traceOpacity = 1;
   walkOverlay: WalkOverlay = "none";
   views = new Map<string, View>();
 

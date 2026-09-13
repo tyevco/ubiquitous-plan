@@ -6,6 +6,7 @@ import {
   footprint,
   frontAccessPoint,
   frontZone,
+  pointInPolygon,
   rectIntersection,
   rectToPolygon,
   rectsOverlap,
@@ -173,10 +174,7 @@ export function analyzeFloor(project: Project, floor: Floor, staticGridIn?: Grid
     // Open-plan boundaries between rooms aren't doorways; nothing to keep clear.
     if (pass.kind === "stair" || pass.kind === "opening") continue;
     const open = passageRect(pass, 6);
-    const swing =
-      pass.swingInto && pass.hinge
-        ? doorSwingPolygon(pass.a, pass.b, pass.hinge === "a" ? pass.a : pass.b, roomCentre(floor, pass.swingInto))
-        : undefined;
+    const swing = doorSwing(pass, floor);
     for (const p of placements) {
       const fp = footprint(p, items.get(p.itemId)!);
       const poly = rectToPolygon(fp);
@@ -350,11 +348,31 @@ export function floorAnchors(project: Project, floor: Floor): { passage: Passage
   return out;
 }
 
-function roomCentre(floor: Floor, roomId: string): { x: number; y: number } {
-  const r = floor.rooms.find((x) => x.id === roomId);
-  if (!r) return { x: 0, y: 0 };
-  const b = bounds(r.polygon);
-  return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+/**
+ * The door's swing sector, opening toward whichever side of the wall lies inside
+ * the room it swings into (probed just off the door's midpoint, so L-shaped rooms
+ * whose bounding-box centre is on the wrong side still get the right answer).
+ */
+export function doorSwing(pass: Passage, floor: Floor): ReturnType<typeof doorSwingPolygon> | undefined {
+  if (!pass.swingInto || !pass.hinge) return undefined;
+  const room = floor.rooms.find((r) => r.id === pass.swingInto);
+  const mid = { x: (pass.a.x + pass.b.x) / 2, y: (pass.a.y + pass.b.y) / 2 };
+  const len = Math.hypot(pass.b.x - pass.a.x, pass.b.y - pass.a.y) || 1;
+  const nx = -(pass.b.y - pass.a.y) / len,
+    ny = (pass.b.x - pass.a.x) / len;
+  let into = { x: mid.x + nx * 8, y: mid.y + ny * 8 };
+  if (room) {
+    const inside = (p: { x: number; y: number }) => pointInPolygon(p, room.polygon);
+    if (!inside(into)) {
+      const other = { x: mid.x - nx * 8, y: mid.y - ny * 8 };
+      if (inside(other)) into = other;
+      else {
+        const b = bounds(room.polygon);
+        into = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+      }
+    }
+  }
+  return doorSwingPolygon(pass.a, pass.b, pass.hinge === "a" ? pass.a : pass.b, into);
 }
 
 const uniq = <T>(xs: T[]): T[] => [...new Set(xs)];
