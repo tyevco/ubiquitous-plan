@@ -75,6 +75,9 @@ The floorplan image only states the room sizes, so wall positions, door widths,
 and the stair geometry are estimates (interior doors 30", entry and patio
 doors 36", a straight 42" stair with 80" headroom). Edit mode lets you drag corners, walls, door
 ends, and stair landings, or type exact numbers, once you have measured on site.
+Walls are attached: moving a wall carries the neighbouring room's face, the
+doors and windows in that wall, and anything touching it (built-ins and placed
+furniture) along with it. A fixture can be marked free-standing to stay put.
 Rooms can be any polygon; fixtures (island, tub, water heater) are obstacles.
 
 The top bar shows the traced square footage next to the listed size (1,219

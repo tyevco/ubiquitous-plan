@@ -302,4 +302,27 @@ describe("attached walls", () => {
     expect(bounds(bath.polygon).y - (bounds(bed.polygon).y + bounds(bed.polygon).h)).toBe(wall);
     expect(door.a.y).toBe(doorY + 10);
   });
+
+  it("fixtures and placed furniture against a moved wall ride along; free-standing ones stay", () => {
+    const p = defaultProject();
+    const f = p.floors[0];
+    const bed = f.rooms.find((r) => r.id === "bed1")!;
+    const bath = f.rooms.find((r) => r.id === "bath1")!;
+    const bedB = bounds(bed.polygon), bathB = bounds(bath.polygon);
+    // A built-in against the bath's north face, a free-standing one there too, and one on the bath's far wall.
+    f.fixtures.push({ id: "onwall", name: "On wall", polygon: rect(bathB.x + 10, bathB.y, 20, 20) });
+    f.fixtures.push({ id: "loose", name: "Loose", polygon: rect(bathB.x + 40, bathB.y, 20, 20), attach: "free" });
+    f.fixtures.push({ id: "far", name: "Far", polygon: rect(bathB.x + 10, bathB.y + bathB.h - 20, 20, 20) });
+    // A dresser placed against the bedroom's south wall.
+    const dresser = p.furniture.find((it) => it.kind === "dresser")!;
+    const placement: Placement = { id: "pl", itemId: dresser.id, floorId: f.id, x: bedB.x + 20, y: bedB.y + bedB.h - dresser.d, rotation: 180 };
+    p.placements.push(placement);
+    const before = bed.polygon.map((q) => ({ ...q }));
+    setEdgeLength(bed.polygon, 1, bedB.h + 10);
+    propagateWallMoves(f, "bed1", before, bed.polygon, p);
+    expect(bounds(f.fixtures.find((x) => x.id === "onwall")!.polygon).y).toBe(bathB.y + 10);
+    expect(bounds(f.fixtures.find((x) => x.id === "loose")!.polygon).y).toBe(bathB.y);
+    expect(bounds(f.fixtures.find((x) => x.id === "far")!.polygon).y).toBe(bathB.y + bathB.h - 20);
+    expect(placement.y).toBe(bedB.y + bedB.h - dresser.d + 10);
+  });
 });

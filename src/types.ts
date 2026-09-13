@@ -36,6 +36,11 @@ export interface Fixture {
   height?: number;
   /** How to draw it: a built-in (default), a half-height pony wall, a full wall segment, or stair treads. */
   style?: "halfwall" | "wall" | "stairs";
+  /**
+   * How it follows the walls: undefined/"auto" moves it with any wall face it is touching
+   * (a vanity against the wall rides along when that wall moves); "free" stays put.
+   */
+  attach?: "auto" | "free";
 }
 
 export type PassageKind =

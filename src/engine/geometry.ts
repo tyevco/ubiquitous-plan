@@ -358,10 +358,58 @@ export function fitRoomToListed(project: import("../types").Project, floorId: st
  * `wallMax` inches, overlapping in span) by the same amount, and doors and
  * windows sitting in that wall move too. Returns the number of things moved.
  */
-export function propagateWallMoves(floor: import("../types").Floor, roomId: string, before: Polygon, after: Polygon, wallMax = 12): number {
+export interface WallFollowers {
+  furniture?: FurnitureItem[];
+  placements?: Placement[];
+}
+
+/** How close (inches) a fixture or piece must be to a wall face to count as touching it. */
+const TOUCH = 1.5;
+
+/**
+ * Walls are attached. For every orthogonal edge of a room that was translated across itself, this moves
+ * the neighbouring rooms' faces on the far side of that wall by the same amount, the doors and windows in
+ * the wall, and everything sitting against either face: built-in fixtures (unless free-standing) and placed furniture.
+ */
+export function propagateWallMoves(
+  floor: import("../types").Floor,
+  roomId: string,
+  before: Polygon,
+  after: Polygon,
+  followers: WallFollowers = {},
+  wallMax = 12,
+): number {
   if (before.length !== after.length) return 0;
   const n = before.length;
   let moved = 0;
+  /** Fixture/placement ids already shifted along an axis this call, so a piece spanning two moved faces moves once. */
+  const shifted = new Set<string>();
+  const itemById = new Map((followers.furniture ?? []).map((it) => [it.id, it]));
+  const followFace = (axis: "x" | "y", along: "x" | "y", coord: number, lo: number, hi: number, delta: number): void => {
+    const touches = (b: Rect): boolean => {
+      const near = axis === "x" ? Math.min(Math.abs(b.x - coord), Math.abs(b.x + b.w - coord)) : Math.min(Math.abs(b.y - coord), Math.abs(b.y + b.h - coord));
+      if (near > TOUCH) return false;
+      const blo = along === "x" ? b.x : b.y,
+        bhi = along === "x" ? b.x + b.w : b.y + b.h;
+      return bhi > lo + TOUCH && blo < hi - TOUCH;
+    };
+    for (const fx of floor.fixtures) {
+      const key = `f:${fx.id}:${axis}`;
+      if (fx.attach === "free" || shifted.has(key) || !touches(bounds(fx.polygon))) continue;
+      for (const q of fx.polygon) q[axis] += delta;
+      shifted.add(key);
+      moved++;
+    }
+    for (const pl of followers.placements ?? []) {
+      if (pl.floorId !== floor.id) continue;
+      const item = itemById.get(pl.itemId);
+      const key = `p:${pl.id}:${axis}`;
+      if (!item || shifted.has(key) || !touches(footprint(pl, item))) continue;
+      pl[axis] += delta;
+      shifted.add(key);
+      moved++;
+    }
+  };
   for (let i = 0; i < n; i++) {
     const a0 = before[i],
       b0 = before[(i + 1) % n];
@@ -397,11 +445,17 @@ export function propagateWallMoves(floor: import("../types").Floor, roomId: stri
         touched.add(j);
         touched.add((j + 1) % m);
       }
+      const faces = new Map<number, [number, number]>();
       for (const j of touched) {
-        r.polygon[j][axis] += delta;
+        const p = r.polygon[j];
+        const span = faces.get(p[axis]) ?? [Infinity, -Infinity];
+        faces.set(p[axis], [Math.min(span[0], p[along]), Math.max(span[1], p[along])]);
+        p[axis] += delta;
         moved++;
       }
+      for (const [coord, [flo, fhi]] of faces) followFace(axis, along, coord, flo, fhi, delta);
     }
+    followFace(axis, along, wallCoord, lo, hi, delta);
     for (const p of floor.passages) {
       if (p.kind === "stair") continue;
       const pm = { x: (p.a.x + p.b.x) / 2, y: (p.a.y + p.b.y) / 2 };

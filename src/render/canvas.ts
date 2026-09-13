@@ -209,7 +209,7 @@ export class PlanCanvas {
           s.updateTransient(() => {
             const before = poly.map((q) => ({ ...q }));
             moveVertex(poly, d.index, nx, ny);
-            if (d.owner === "room") propagateWallMoves(s.floor, d.id, before, poly);
+            if (d.owner === "room") propagateWallMoves(s.floor, d.id, before, poly, s.project);
           });
           break;
         }
@@ -226,7 +226,7 @@ export class PlanCanvas {
               q.x += dx;
               q.y += dy;
             }
-            if (d.owner === "room") propagateWallMoves(s.floor, d.id, before, poly);
+            if (d.owner === "room") propagateWallMoves(s.floor, d.id, before, poly, s.project);
           });
           break;
         }

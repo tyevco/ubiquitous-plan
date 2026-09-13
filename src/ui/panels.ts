@@ -424,7 +424,7 @@ export class Panels {
     const sel = s.selection;
     const parts: string[] = [];
     parts.push(`<div class="panel-head"><h2>Edit plan</h2></div>
-      <p class="hint">Drag corners, walls, and door ends on the plan. Coordinates are inches from the top-left; rooms are drawn to the inside faces of the walls, so every size is a clear interior size. Walls are attached: moving a wall moves the neighbouring room's face, and the doors and windows in it, with it.</p>
+      <p class="hint">Drag corners, walls, and door ends on the plan. Coordinates are inches from the top-left; rooms are drawn to the inside faces of the walls, so every size is a clear interior size. Walls are attached: moving a wall moves the neighbouring room's face, the doors and windows in it, and any built-in or placed piece touching it.</p>
       <div class="row3">
         <label>Floor <input type="text" data-floor-field="name" value="${esc(f.name)}"></label>
         <label>W <input type="number" data-floor-field="width" value="${f.width}"></label>
@@ -565,6 +565,10 @@ export class Panels {
           <option value="halfwall" ${(r as Fixture).style === "halfwall" ? "selected" : ""}>half wall / railing</option>
           <option value="wall" ${(r as Fixture).style === "wall" ? "selected" : ""}>wall segment / column</option>
           <option value="stairs" ${(r as Fixture).style === "stairs" ? "selected" : ""}>stair treads</option>
+        </select></label>
+        <label>Walls <select data-poly-field="attach" data-type="fixture" data-id="${r.id}">
+          <option value="" ${(r as Fixture).attach !== "free" ? "selected" : ""}>attached: follows a wall it touches</option>
+          <option value="free" ${(r as Fixture).attach === "free" ? "selected" : ""}>free-standing: stays put</option>
         </select></label>`
           : ""
       }
@@ -879,7 +883,7 @@ export class Panels {
           if (!f || !room?.measured) return;
           const before = room.polygon.map((q) => ({ ...q }));
           resizeToBounds(room.polygon, room.measured.w, room.measured.d);
-          propagateWallMoves(f, id, before, room.polygon);
+          propagateWallMoves(f, id, before, room.polygon, p);
         });
         break;
       }
@@ -1039,7 +1043,7 @@ export class Panels {
         if (!target) return;
         const before = target.polygon.map((q) => ({ ...q }));
         setEdgeLength(target.polygon, Number(d.edgeField), len);
-        if (type === "room") propagateWallMoves(f, id, before, target.polygon);
+        if (type === "room") propagateWallMoves(f, id, before, target.polygon, p);
       });
       return;
     }
@@ -1070,6 +1074,7 @@ export class Panels {
         else if (d.polyField === "counts") (target as Room).excludeFromArea = !(el as HTMLInputElement).checked || undefined;
         else if (d.polyField === "outdoor") (target as Room).outdoor = (el as HTMLInputElement).checked || undefined;
         else if (d.polyField === "style") (target as Fixture).style = (el.value || undefined) as Fixture["style"];
+        else if (d.polyField === "attach") (target as Fixture).attach = (el.value || undefined) as Fixture["attach"];
         else if (d.polyField === "points") {
           const pts = el.value
             .split(/\n/)
@@ -1083,7 +1088,7 @@ export class Panels {
           const nb = { ...b, [d.rectField]: d.rectField === "w" || d.rectField === "h" ? Math.max(1, v) : v };
           target.polygon = rect(nb.x, nb.y, nb.w, nb.h);
         }
-        if (type === "room") propagateWallMoves(f, id, before, target.polygon);
+        if (type === "room") propagateWallMoves(f, id, before, target.polygon, p);
       });
       return;
     }
