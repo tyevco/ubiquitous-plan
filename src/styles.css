@@ -69,6 +69,7 @@ h4 { margin: 10px 0 4px; font-size: 12px; }
 .tab.active { background: #e8effc; border-color: #b9cdf7; color: var(--accent); font-weight: 600; }
 .toggle { display: inline-flex; align-items: center; gap: 4px; margin: 0 4px; white-space: nowrap; }
 .toggle input, .toggle select { width: auto; }
+.toggle input[type="range"] { width: 64px; }
 .status { display: flex; gap: 4px; margin-left: auto; }
 .pill { padding: 1px 8px; border-radius: 999px; font-weight: 600; font-size: 12px; color: #fff; }
 .pill.error { background: var(--err); }

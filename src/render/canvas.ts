@@ -401,6 +401,17 @@ export class PlanCanvas {
       parts.push(`<path class="grid" d="${g.join("")}" ${hairline}/>`);
     }
 
+    // The builder's drawing under the trace, clipped to the floor.
+    if (s.showPlan && f.overlay && OVERLAY_IMAGES[f.overlay.image]) {
+      const o = f.overlay;
+      parts.push(
+        `<clipPath id="floor-clip"><rect x="0" y="0" width="${f.width}" height="${f.height}"/></clipPath>` +
+          `<image class="plan-overlay" href="${OVERLAY_IMAGES[o.image]}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" preserveAspectRatio="none" opacity="${o.opacity ?? 0.55}" clip-path="url(#floor-clip)"/>`,
+      );
+    }
+
+    // Everything traced from the plan goes in one group so it can be faded to show the drawing beneath.
+    parts.push(`<g class="trace" opacity="${s.traceOpacity}">`);
     // Walls: stroke each room polygon 12" wide under the floor fills so the 6" gaps read as walls.
     const drawn = f.rooms.filter((r) => !r.virtual);
     for (const r of drawn) if (!r.outdoor) parts.push(`<polygon class="wall" points="${pts(r.polygon)}" />`);
@@ -417,15 +428,6 @@ export class PlanCanvas {
       parts.push(`<rect class="opening" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
     }
 
-    // The builder's drawing over the trace, clipped to the floor.
-    if (s.showPlan && f.overlay && OVERLAY_IMAGES[f.overlay.image]) {
-      const o = f.overlay;
-      parts.push(
-        `<clipPath id="floor-clip"><rect x="0" y="0" width="${f.width}" height="${f.height}"/></clipPath>` +
-          `<image class="plan-overlay" href="${OVERLAY_IMAGES[o.image]}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" preserveAspectRatio="none" opacity="${o.opacity ?? 0.55}" clip-path="url(#floor-clip)"/>`,
-      );
-    }
-
     // Windows: a light bar in the wall.
     for (const w of f.windows ?? []) {
       const r = passageRect(w, 3);
@@ -433,12 +435,6 @@ export class PlanCanvas {
       const attrs = s.mode === "edit" ? `data-kind="window" data-id="${w.id}"` : "";
       parts.push(`<rect class="window${selected ? " selected" : ""}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" ${attrs} ${hairline}/>`);
       parts.push(`<line class="window-line" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}" ${hairline}/>`);
-    }
-
-    // Walk overlay as a raster image.
-    if (s.walkOverlay !== "none" && fa) {
-      const url = this.overlayImage(fa.grid.cols, fa.grid.rows, s.walkOverlay === "main" ? fa.mainMask : fa.secondaryMask, s.walkOverlay === "main" ? fa.mainReach : fa.secondaryReach, fa.grid.blocked, `${f.id}:${s.walkOverlay}:${fa.grid.cols}x${fa.grid.rows}:${hash(fa.mainMask)}:${hash(fa.mainReach)}:${hash(fa.secondaryReach)}`);
-      parts.push(`<image class="overlay" href="${url}" x="0" y="0" width="${fa.grid.cols * fa.grid.cell}" height="${fa.grid.rows * fa.grid.cell}" preserveAspectRatio="none"/>`);
     }
 
     // Fixtures.
@@ -509,6 +505,14 @@ export class PlanCanvas {
           `<circle cx="${a.point.x}" cy="${a.point.y}" r="${fs(7)}" ${hairline}/>` +
           `<text class="label" x="${a.point.x}" y="${a.point.y + fs(18)}" font-size="${fs(9)}">${esc(a.passage.name)} ${isA ? "↑" : "↓"}</text></g>`,
       );
+    }
+
+    parts.push(`</g>`);
+
+    // Walk overlay as a raster image.
+    if (s.walkOverlay !== "none" && fa) {
+      const url = this.overlayImage(fa.grid.cols, fa.grid.rows, s.walkOverlay === "main" ? fa.mainMask : fa.secondaryMask, s.walkOverlay === "main" ? fa.mainReach : fa.secondaryReach, fa.grid.blocked, `${f.id}:${s.walkOverlay}:${fa.grid.cols}x${fa.grid.rows}:${hash(fa.mainMask)}:${hash(fa.mainReach)}:${hash(fa.secondaryReach)}`);
+      parts.push(`<image class="overlay" href="${url}" x="0" y="0" width="${fa.grid.cols * fa.grid.cell}" height="${fa.grid.rows * fa.grid.cell}" preserveAspectRatio="none"/>`);
     }
 
     // Placements.
