@@ -1,7 +1,7 @@
 import type { Passage, Placement, Point, Polygon } from "../types";
 import type { Store, Selection } from "../state";
 import { accessZones, doorSwing, floorAnchors } from "../engine/analysis";
-import { bounds, fmtFtIn, footprint, pointInPolygon, snapTo, type Rect } from "../engine/geometry";
+import { bounds, fmtFtIn, footprint, pointInPolygon, propagateWallMoves, snapTo, type Rect } from "../engine/geometry";
 import { idx, passageRect } from "../engine/grid";
 
 /** Bundled drawings that a floor's overlay can reference by name. */
@@ -206,7 +206,11 @@ export class PlanCanvas {
           if (!poly) return;
           const nx = snapTo(p.x, snap),
             ny = snapTo(p.y, snap);
-          s.updateTransient(() => moveVertex(poly, d.index, nx, ny));
+          s.updateTransient(() => {
+            const before = poly.map((q) => ({ ...q }));
+            moveVertex(poly, d.index, nx, ny);
+            if (d.owner === "room") propagateWallMoves(s.floor, d.id, before, poly);
+          });
           break;
         }
         case "body": {
@@ -217,10 +221,12 @@ export class PlanCanvas {
           if (!dx && !dy) return;
           d.last = { x: d.last.x + dx, y: d.last.y + dy };
           s.updateTransient(() => {
+            const before = poly.map((q) => ({ ...q }));
             for (const q of poly) {
               q.x += dx;
               q.y += dy;
             }
+            if (d.owner === "room") propagateWallMoves(s.floor, d.id, before, poly);
           });
           break;
         }

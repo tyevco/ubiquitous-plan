@@ -4,7 +4,7 @@ import { solveRoom } from "../src/engine/solver";
 import { defaultProject } from "../src/engine/defaults";
 import { analyze, analyzeFloor } from "../src/engine/analysis";
 import { buildGrid, passableMask, flood, nearestPassable } from "../src/engine/grid";
-import { footprint, frontZone, sideZones, doorSwingPolygon, convexPolygonsOverlap, rect, areaSummary, rectsOverlap, parseLength, parseSize, setEdgeLength, bounds, stretchFloor } from "../src/engine/geometry";
+import { footprint, frontZone, sideZones, doorSwingPolygon, convexPolygonsOverlap, rect, areaSummary, rectsOverlap, parseLength, parseSize, setEdgeLength, bounds, stretchFloor, propagateWallMoves } from "../src/engine/geometry";
 import type { Placement, Project } from "../src/types";
 
 describe("corner formula", () => {
@@ -279,5 +279,27 @@ describe("floor stretch", () => {
     expect(p.floors[0].height).toBe(p.floors[1].height);
     const listed = p.floors.flatMap((f) => f.rooms.filter((r) => r.listed).map((r) => r.id));
     expect(listed.sort()).toEqual(["bed1", "bed2", "den", "living"]);
+  });
+});
+
+describe("attached walls", () => {
+  it("moving a room's wall carries the neighbour's face and the door in it", () => {
+    const p = defaultProject();
+    const f = p.floors[0];
+    const bed = f.rooms.find((r) => r.id === "bed1")!;
+    const bath = f.rooms.find((r) => r.id === "bath1")!;
+    const closet = f.rooms.find((r) => r.id === "closet1")!;
+    const door = f.passages.find((x) => x.id === "bath1-door")!;
+    const bedB = bounds(bed.polygon), bathB = bounds(bath.polygon), closetB = bounds(closet.polygon), doorY = door.a.y;
+    const wall = bathB.y - (bedB.y + bedB.h);
+    const before = bed.polygon.map((q) => ({ ...q }));
+    setEdgeLength(bed.polygon, 1, bedB.h + 10); // right wall, top to bottom: bedroom 10" deeper
+    const moved = propagateWallMoves(f, "bed1", before, bed.polygon);
+    expect(moved).toBeGreaterThan(0);
+    expect(bounds(bath.polygon).y).toBe(bathB.y + 10);
+    expect(bounds(bath.polygon).h).toBe(bathB.h - 10);
+    expect(bounds(closet.polygon).y).toBe(closetB.y + 10);
+    expect(bounds(bath.polygon).y - (bounds(bed.polygon).y + bounds(bed.polygon).h)).toBe(wall);
+    expect(door.a.y).toBe(doorY + 10);
   });
 });
