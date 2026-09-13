@@ -81,12 +81,13 @@ const first: Floor = {
     {
       id: "entry",
       name: "Entry",
-      // Wraps the stair run, the block under it, and the storage closet.
-      polygon: [m1.pt(276, 63), m1.pt(431, 63), m1.pt(431, 118), m1.pt(364, 118), m1.pt(364, 216), m1.pt(345, 216), m1.pt(345, 328), m1.pt(276, 328)],
+      // Wraps the stair run, the block under it, and the storage closet. Its west
+      // face follows the bedroom wall (x 270) and then the bath wall, which jogs 6 px east.
+      polygon: [m1.pt(270, 63), m1.pt(431, 63), m1.pt(431, 118), m1.pt(364, 118), m1.pt(364, 216), m1.pt(345, 216), m1.pt(345, 328), m1.pt(276, 328), m1.pt(276, 220), m1.pt(270, 220)],
     },
     { id: "storage", name: "Storage", polygon: m1.rect(350, 268, 431, 328) },
     { id: "garage", name: "2-car garage", polygon: m1.rect(17, 338, 436, 780), excludeFromArea: true },
-    { id: "porch", name: "Porch", polygon: m1.rect(276, 5, 431, 54), excludeFromArea: true, outdoor: true },
+    { id: "porch", name: "Porch", polygon: m1.rect(270, 5, 431, 54), excludeFromArea: true, outdoor: true },
   ],
   fixtures: [
     { id: "stairs1", name: "Stairs up", polygon: m1.rect(372, 118, 431, 216), style: "stairs" },
@@ -107,7 +108,7 @@ const first: Floor = {
   ],
   passages: [
     { id: "front-door", name: "Front door", kind: "exterior", floorId: "first", ...hDoor(m1, 58.5, 307, 365, 36), width: 36, height: 80, rooms: ["porch", "entry"], swingInto: "entry", hinge: "a" },
-    { id: "porch-steps", name: "Porch", kind: "opening", floorId: "first", a: m1.pt(276, 5), b: m1.pt(431, 5), width: 98, rooms: [OUTSIDE, "porch"] },
+    { id: "porch-steps", name: "Porch", kind: "opening", floorId: "first", a: m1.pt(270, 5), b: m1.pt(431, 5), width: 102, rooms: [OUTSIDE, "porch"] },
     { id: "bed1-door", name: "Bedroom 1 door", kind: "door", floorId: "first", ...vDoor(m1, 267.5, 151, 206, 32), width: 32, height: 80, rooms: ["entry", "bed1"], swingInto: "bed1", hinge: "a" },
     { id: "closet1-door", name: "Closet 1 door", kind: "door", floorId: "first", ...hDoor(m1, 217.5, 56, 102, 30), width: 30, height: 80, rooms: ["bed1", "closet1"], swingInto: "closet1", hinge: "b" },
     { id: "bath1-door", name: "Bath 1 door", kind: "door", floorId: "first", ...hDoor(m1, 217.5, 154, 208, 30), width: 30, height: 80, rooms: ["bed1", "bath1"], swingInto: "bath1", hinge: "b" },
@@ -158,7 +159,7 @@ const second: Floor = {
     { id: "den", name: "Den / dining", polygon: m2.rect(810, 416, 992, 551), listed: { w: 108, d: 108 } },
     { id: "bath2", name: "Bath 2", polygon: m2.rect(575, 469, 730, 645) },
     { id: "closet2", name: "Walk-in closet", polygon: m2.rect(575, 651, 730, 797) },
-    { id: "bed2", name: "Bedroom 2", polygon: m2.rect(742, 556, 992, 797), listed: { w: 168, d: 156 } },
+    { id: "bed2", name: "Bedroom 2", polygon: m2.rect(735, 556, 992, 797), listed: { w: 168, d: 156 } },
   ],
   fixtures: [
     { id: "stairs2", name: "Stairs down", polygon: m2.rect(913, 138, 992, 380), style: "stairs" },

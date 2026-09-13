@@ -115,7 +115,7 @@ svg.plan { width: 100%; height: 100%; display: block; touch-action: none; cursor
 svg.plan:active { cursor: grabbing; }
 svg.plan.placing { cursor: crosshair; }
 .grid { stroke: #e6e2da; stroke-width: 1px; fill: none; }
-.wall { fill: var(--wall); stroke: var(--wall); stroke-width: 12; stroke-linejoin: miter; }
+.wall { fill: var(--wall); stroke: var(--wall); stroke-width: 9; stroke-linejoin: miter; }
 .room { fill: var(--floor); stroke: none; }
 svg.edit .room { cursor: move; }
 .room.selected { fill: #eef3ff; }

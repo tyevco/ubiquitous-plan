@@ -412,7 +412,8 @@ export class PlanCanvas {
 
     // Everything traced from the plan goes in one group so it can be faded to show the drawing beneath.
     parts.push(`<g class="trace" opacity="${s.traceOpacity}">`);
-    // Walls: stroke each room polygon 12" wide under the floor fills so the 6" gaps read as walls.
+    // Walls: stroke each room polygon 9" wide under the floor fills, so the gaps between rooms
+    // read as walls at their traced thickness and exterior walls read about 4.5".
     const drawn = f.rooms.filter((r) => !r.virtual);
     for (const r of drawn) if (!r.outdoor) parts.push(`<polygon class="wall" points="${pts(r.polygon)}" />`);
     for (const r of drawn) {

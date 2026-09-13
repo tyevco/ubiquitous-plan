@@ -75,21 +75,25 @@ function roomEdges(room: Room): Edge[] {
   return out;
 }
 
+/** Cells whose centres lie inside [lo, hi); the containing cell when the span is thinner than a cell. */
+function cellSpan(lo: number, hi: number, cell: number, max: number): [number, number] {
+  let a = Math.ceil((lo - cell / 2) / cell),
+    b = Math.floor((hi - cell / 2 - 0.001) / cell);
+  if (b < a) a = b = Math.floor((lo + hi) / 2 / cell);
+  return [Math.max(0, a), Math.min(max - 1, b)];
+}
+
 function staticFree(g: Grid, r: Rect): boolean {
-  const x0 = Math.max(0, Math.floor(r.x / g.cell)),
-    x1 = Math.min(g.cols - 1, Math.floor((r.x + r.w - 0.01) / g.cell));
-  const y0 = Math.max(0, Math.floor(r.y / g.cell)),
-    y1 = Math.min(g.rows - 1, Math.floor((r.y + r.h - 0.01) / g.cell));
+  const [x0, x1] = cellSpan(r.x, r.x + r.w, g.cell, g.cols);
+  const [y0, y1] = cellSpan(r.y, r.y + r.h, g.cell, g.rows);
   if (x1 < x0 || y1 < y0) return false;
   for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) if (g.blocked[idx(g, cx, cy)]) return false;
   return true;
 }
 
 function staticBlockedFraction(g: Grid, r: Rect): number {
-  const x0 = Math.max(0, Math.floor(r.x / g.cell)),
-    x1 = Math.min(g.cols - 1, Math.floor((r.x + r.w - 0.01) / g.cell));
-  const y0 = Math.max(0, Math.floor(r.y / g.cell)),
-    y1 = Math.min(g.rows - 1, Math.floor((r.y + r.h - 0.01) / g.cell));
+  const [x0, x1] = cellSpan(r.x, r.x + r.w, g.cell, g.cols);
+  const [y0, y1] = cellSpan(r.y, r.y + r.h, g.cell, g.rows);
   let n = 0,
     b = 0;
   for (let cy = y0; cy <= y1; cy++)
