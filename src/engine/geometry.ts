@@ -350,3 +350,79 @@ export function fitRoomToListed(project: import("../types").Project, floorId: st
   if (dd) stretchFloor(project, floorId, "y", b.y + b.h, dd);
   return { dw, dd };
 }
+
+/**
+ * Keep shared walls attached. Compare a room's polygon before and after an
+ * edit: every orthogonal edge that translated across itself carries the faces
+ * of neighbouring rooms on the far side of that wall (parallel, within
+ * `wallMax` inches, overlapping in span) by the same amount, and doors and
+ * windows sitting in that wall move too. Returns the number of things moved.
+ */
+export function propagateWallMoves(floor: import("../types").Floor, roomId: string, before: Polygon, after: Polygon, wallMax = 12): number {
+  if (before.length !== after.length) return 0;
+  const n = before.length;
+  let moved = 0;
+  for (let i = 0; i < n; i++) {
+    const a0 = before[i],
+      b0 = before[(i + 1) % n];
+    const a1 = after[i],
+      b1 = after[(i + 1) % n];
+    const horizontal = a0.y === b0.y && a1.y === b1.y;
+    const vertical = a0.x === b0.x && a1.x === b1.x;
+    if (!horizontal && !vertical) continue;
+    const axis: "x" | "y" = horizontal ? "y" : "x";
+    const along: "x" | "y" = horizontal ? "x" : "y";
+    const delta = a1[axis] - a0[axis];
+    if (Math.abs(delta) < 1e-6) continue;
+    // Outward side of this edge: the side away from the room's interior.
+    const mid = { x: (a0.x + b0.x) / 2, y: (a0.y + b0.y) / 2 };
+    const probe = { ...mid, [axis]: mid[axis] + 0.5 } as Point;
+    const outward = pointInPolygon(probe, before) ? -1 : 1;
+    const lo = Math.min(a0[along], b0[along]),
+      hi = Math.max(a0[along], b0[along]);
+    const wallCoord = a0[axis];
+    const inBand = (v: number): boolean => outward > 0 ? v > wallCoord && v <= wallCoord + wallMax : v < wallCoord && v >= wallCoord - wallMax;
+    for (const r of floor.rooms) {
+      if (r.id === roomId || r.virtual) continue;
+      const m = r.polygon.length;
+      const touched = new Set<number>();
+      for (let j = 0; j < m; j++) {
+        const p = r.polygon[j],
+          q = r.polygon[(j + 1) % m];
+        const parallel = horizontal ? p.y === q.y : p.x === q.x;
+        if (!parallel || !inBand(p[axis])) continue;
+        const plo = Math.min(p[along], q[along]),
+          phi = Math.max(p[along], q[along]);
+        if (phi <= lo || plo >= hi) continue; // no overlap in span
+        touched.add(j);
+        touched.add((j + 1) % m);
+      }
+      for (const j of touched) {
+        r.polygon[j][axis] += delta;
+        moved++;
+      }
+    }
+    for (const p of floor.passages) {
+      if (p.kind === "stair") continue;
+      const pm = { x: (p.a.x + p.b.x) / 2, y: (p.a.y + p.b.y) / 2 };
+      const inSpan = pm[along] >= lo - 1 && pm[along] <= hi + 1;
+      const inWall = Math.abs(pm[axis] - wallCoord) <= wallMax && (inBand(pm[axis]) || pm[axis] === wallCoord);
+      if (inSpan && inWall) {
+        p.a[axis] += delta;
+        p.b[axis] += delta;
+        moved++;
+      }
+    }
+    for (const w of floor.windows ?? []) {
+      const wm = { x: (w.a.x + w.b.x) / 2, y: (w.a.y + w.b.y) / 2 };
+      const inSpan = wm[along] >= lo - 1 && wm[along] <= hi + 1;
+      const inWall = Math.abs(wm[axis] - wallCoord) <= wallMax && (inBand(wm[axis]) || wm[axis] === wallCoord);
+      if (inSpan && inWall) {
+        w.a[axis] += delta;
+        w.b[axis] += delta;
+        moved++;
+      }
+    }
+  }
+  return moved;
+}

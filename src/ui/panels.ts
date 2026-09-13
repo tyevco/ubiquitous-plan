@@ -3,7 +3,7 @@ import type { SolveRequest, SolveResult } from "../engine/solver";
 import { Store, uid, normalize } from "../state";
 import type { PlanCanvas } from "../render/canvas";
 import { OUTSIDE, defaultProject } from "../engine/defaults";
-import { areaSummary, bounds, edgeLabel, fitRoomToListed, footprint, fmtFtIn, isOrthogonal, parseLength, parseSize, rect, resizeToBounds, setEdgeLength } from "../engine/geometry";
+import { areaSummary, bounds, edgeLabel, fitRoomToListed, footprint, fmtFtIn, isOrthogonal, parseLength, parseSize, propagateWallMoves, rect, resizeToBounds, setEdgeLength } from "../engine/geometry";
 import { itemFrontClearance } from "../engine/analysis";
 import { roomOfPoint } from "../engine/transport";
 
@@ -424,7 +424,7 @@ export class Panels {
     const sel = s.selection;
     const parts: string[] = [];
     parts.push(`<div class="panel-head"><h2>Edit plan</h2></div>
-      <p class="hint">Drag corners, walls, and door ends on the plan. Coordinates are inches from the top-left; rooms are drawn to the inside faces of the walls.</p>
+      <p class="hint">Drag corners, walls, and door ends on the plan. Coordinates are inches from the top-left; rooms are drawn to the inside faces of the walls, so every size is a clear interior size. Walls are attached: moving a wall moves the neighbouring room's face, and the doors and windows in it, with it.</p>
       <div class="row3">
         <label>Floor <input type="text" data-floor-field="name" value="${esc(f.name)}"></label>
         <label>W <input type="number" data-floor-field="width" value="${f.width}"></label>
@@ -874,8 +874,12 @@ export class Panels {
       case "apply-measured": {
         const floorId = el.dataset.floor!;
         s.update((p) => {
-          const room = p.floors.find((x) => x.id === floorId)?.rooms.find((r) => r.id === id);
-          if (room?.measured) resizeToBounds(room.polygon, room.measured.w, room.measured.d);
+          const f = p.floors.find((x) => x.id === floorId);
+          const room = f?.rooms.find((r) => r.id === id);
+          if (!f || !room?.measured) return;
+          const before = room.polygon.map((q) => ({ ...q }));
+          resizeToBounds(room.polygon, room.measured.w, room.measured.d);
+          propagateWallMoves(f, id, before, room.polygon);
         });
         break;
       }
@@ -1032,7 +1036,10 @@ export class Panels {
       s.update((p) => {
         const f = p.floors.find((x) => x.id === s.floor.id)!;
         const target = (type === "room" ? f.rooms : f.fixtures).find((r) => r.id === id);
-        if (target) setEdgeLength(target.polygon, Number(d.edgeField), len);
+        if (!target) return;
+        const before = target.polygon.map((q) => ({ ...q }));
+        setEdgeLength(target.polygon, Number(d.edgeField), len);
+        if (type === "room") propagateWallMoves(f, id, before, target.polygon);
       });
       return;
     }
@@ -1058,6 +1065,7 @@ export class Panels {
         const f = p.floors.find((x) => x.id === s.floor.id)!;
         const target = (type === "room" ? f.rooms : f.fixtures).find((r) => r.id === id);
         if (!target) return;
+        const before = target.polygon.map((q) => ({ ...q }));
         if (d.polyField === "name") target.name = el.value;
         else if (d.polyField === "counts") (target as Room).excludeFromArea = !(el as HTMLInputElement).checked || undefined;
         else if (d.polyField === "outdoor") (target as Room).outdoor = (el as HTMLInputElement).checked || undefined;
@@ -1075,6 +1083,7 @@ export class Panels {
           const nb = { ...b, [d.rectField]: d.rectField === "w" || d.rectField === "h" ? Math.max(1, v) : v };
           target.polygon = rect(nb.x, nb.y, nb.w, nb.h);
         }
+        if (type === "room") propagateWallMoves(f, id, before, target.polygon);
       });
       return;
     }
