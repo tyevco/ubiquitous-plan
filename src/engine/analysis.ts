@@ -95,12 +95,18 @@ export function accessZones(p: Placement, item: FurnitureItem, s: Settings): { r
   return zones;
 }
 
+/** Index range of the cells whose centres lie inside [lo, hi). Falls back to the containing cell when the span is thinner than a cell. */
+function cellSpan(lo: number, hi: number, cell: number, max: number): [number, number] {
+  let a = Math.ceil((lo - cell / 2) / cell),
+    b = Math.floor((hi - cell / 2 - 0.001) / cell);
+  if (b < a) a = b = Math.floor((lo + hi) / 2 / cell);
+  return [Math.max(0, a), Math.min(max - 1, b)];
+}
+
 function staticBlockedInRect(g: Grid, r: Rect, floor: Floor): boolean {
   // Any static (wall/fixture) cell inside r? Static cells are the ones blocked in a furniture-free grid.
-  const x0 = Math.max(0, Math.floor(r.x / g.cell)),
-    x1 = Math.min(g.cols - 1, Math.floor((r.x + r.w - 0.01) / g.cell));
-  const y0 = Math.max(0, Math.floor(r.y / g.cell)),
-    y1 = Math.min(g.rows - 1, Math.floor((r.y + r.h - 0.01) / g.cell));
+  const [x0, x1] = cellSpan(r.x, r.x + r.w, g.cell, g.cols);
+  const [y0, y1] = cellSpan(r.y, r.y + r.h, g.cell, g.rows);
   if (x1 < x0 || y1 < y0) return true;
   for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) if (g.blocked[idx(g, cx, cy)]) return true;
   // Also outside the floor bbox.
@@ -108,10 +114,8 @@ function staticBlockedInRect(g: Grid, r: Rect, floor: Floor): boolean {
 }
 
 function fractionStaticBlocked(g: Grid, r: Rect): number {
-  const x0 = Math.max(0, Math.floor(r.x / g.cell)),
-    x1 = Math.min(g.cols - 1, Math.floor((r.x + r.w - 0.01) / g.cell));
-  const y0 = Math.max(0, Math.floor(r.y / g.cell)),
-    y1 = Math.min(g.rows - 1, Math.floor((r.y + r.h - 0.01) / g.cell));
+  const [x0, x1] = cellSpan(r.x, r.x + r.w, g.cell, g.cols);
+  const [y0, y1] = cellSpan(r.y, r.y + r.h, g.cell, g.rows);
   let n = 0,
     b = 0;
   for (let cy = y0; cy <= y1; cy++)
